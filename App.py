@@ -65,11 +65,8 @@ class App:
 
     def renderObjetcs(self):
         for i in self.displayFile:
-            if (i.tipo == 'Reta'):
-                coordenadas = []
-                for coord in i.coordenates:
-                    coordenadas += [coord.x, coord.y]
-                coords += [i.coordenates[0].x, i.coordenates[0].y]
+            if (i.tipo == 'Reta' or i.tipo == 'Wireframe'):
+                # fazer pra reta e wireframe
                 self.canvas.create_line(coords, tags=i.name)
             else:
                 self.canvas.create_oval(i.coordenates[0].x - 1, i.coordenates[0].y - 1, i.coordenates[0].x + 1, i.coordenates[0].y + 1)
@@ -161,6 +158,12 @@ class App:
             y2 = self.y2.get()
             self.objectCoordenates.append(Coordenates(x1, y1))
             self.objectCoordenates.append(Coordenates(x2, y2))
+            reta = Objeto(name, self.objectCoordenates ,tipo)
+            self.listObjects.insert(END, reta.name)
+            self.log.insert(0, "Objeto "+ reta.name + " incluido")
+            self.displayFile.append(reta)
+            self.renderObjetcs()
+            self.newWindow.destroy()
         elif (tipo == "Wireframe"):
             self.log.insert(0, "Wireframe")
         
