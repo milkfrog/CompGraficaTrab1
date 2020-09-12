@@ -4,16 +4,18 @@ from tkinter import *
 class App:
     def __init__(self):
         self.root = Tk()
-        self.root.title("Programinha Top")
-        self.root.geometry("1000x500")
+        self.root.title("Trabalho 1 de Computação Gráfica INE5420")
+        self.root.geometry("1200x700")
 
-        teste = Frame(self.root, width=50)
-
-        Label(teste, text="testeee", fg="black", bg="green")
+        self.renderMenuDeFuncoes()
 
         self.root.mainloop()
 
-    def constructLayout():
-        pass
-
-
+    def renderMenuDeFuncoes(self):
+        menuDeFuncoes = LabelFrame(self.root, text="Menu de Funções", width=100)
+        labelObjetos = Label(menuDeFuncoes, text="Objetos")
+        menuDeFuncoes.pack(side=LEFT, fill=Y)
+        labelObjetos.pack(side=TOP)
+        self.listObjects = Listbox(menuDeFuncoes, width=40, selectmode=SINGLE)
+        self.listObjects.pack(side=TOP)
+        
