@@ -1,15 +1,22 @@
 from tkinter import *
 from tkinter import ttk
 from math import *
-from Objects import Coordenates, Objeto
+from Objects import Coordenates, Objeto, Operations
 
 
 class App:
     def __init__(self):
         self.root = Tk()
         self.root.title("Trabalho 1 de Computação Gráfica INE5420")
-        self.root.geometry("1200x700")
-        self.root.minsize(1200, 700)
+        # limitando o tamanho do App em 1200x800
+        self.root.minsize(1200, 800)
+        self.root.maxsize(1200, 800)
+
+        # Configs iniciais:
+        self.windowZoomX = 0
+        self.windowZoomY = 0
+        self.windowTransferX = 0
+        self.windowTransferY = 0
 
         # render frame do Widget:
         self.renderWidget()
@@ -54,22 +61,47 @@ class App:
         # frame da ViewPort:
         frameViewPort = LabelFrame(self.root, text="ViewPort")
         frameViewPort.pack(fill=BOTH, expand=1)
-        self.canvas = Canvas(frameViewPort, bg="#fff")
-        self.canvas.pack(fill=BOTH, expand=1)
+        self.canvas = Canvas(frameViewPort, bg="#fff", width=850, height=650)
+        self.canvas.grid(row=0, column=0)
 
         # frame de Log:
         frameLog = LabelFrame(frameViewPort, text="Log")
-        frameLog.pack(fill=X, side=BOTTOM)
-        self.log = Listbox(frameLog, height=5)
+        frameLog.grid(row=1, column=0)
+        # height e width do Listbox NÃO é em pixel, e sim em chars
+        self.log = Listbox(frameLog, height=5, width=106)
         self.log.pack(fill=X)
 
     def renderObjetcs(self):
+        # fazer a transformada de viewPort antes de printar:
+        self.objetosTransformados = []
+        # calculando as variaveis da transformada de ViewPort
+        # limites ViewPort:
+        Xvpmin = 0 - self.windowZoomX
+        Yvpmin = 0 - self.windowZoomY
+        Xvpmax = self.canvas.winfo_width() + self.windowZoomX
+        Yvpmax = self.canvas.winfo_height() + self.windowZoomY
+        # Limites da Window:
+        Xwmin = 0 + self.windowTransferX
+        Ywmin = 0 + self.windowTransferY
+        Xwmax = self.canvas.winfo_width() + self.windowTransferX
+        Ywmax = self.canvas.winfo_height() + self.windowTransferY
         for i in self.displayFile:
+            listCoordenatesTransformed = []
+            for coords in i.coordenates:
+                Xvp = Operations.transformViewPortX(self, coords.x, Xwmin, Xwmax, Xvpmax, Xvpmin)
+                Yvp = Operations.transformViewPortY(self, coords.y, Ywmin, Ywmax, Yvpmax, Yvpmin)
+                listCoordenatesTransformed.append(Coordenates(Xvp, Yvp))
+            objectTransformed = Objeto(i.name, listCoordenatesTransformed ,i.tipo)
+            self.objetosTransformados.append(objectTransformed)
+        for i in self.objetosTransformados:
             if (i.tipo == 'Reta' or i.tipo == 'Wireframe'):
-                # fazer pra reta e wireframe
-                self.canvas.create_line(coords, tags=i.name)
+                coords = []
+                for coordXY in i.coordenates:
+                    coords += [coordXY.x, coordXY.y]
+                
+                self.canvas.create_line(coords)
             else:
-                self.canvas.create_oval(i.coordenates[0].x - 1, i.coordenates[0].y - 1, i.coordenates[0].x + 1, i.coordenates[0].y + 1)
+                self.canvas.create_oval(i.coordenates[0].x - 0.5, i.coordenates[0].y - 0.5, i.coordenates[0].x + 0.5, i.coordenates[0].y + 0.5)
 
     def addObject(self):
         self.objectCoordenates = []

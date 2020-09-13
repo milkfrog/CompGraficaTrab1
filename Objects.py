@@ -21,6 +21,7 @@ class Objeto:
         self.coordenates = coordenates
         self.tipo = tipo
     
+    # TODO: deixar bonito o print pra aparecer na listagem direito
     # def __str__(self):
     #     stringCoordenadas = "["
     #     for i in coordenates:
@@ -47,10 +48,12 @@ class Operations:
     def rotate(self, homogenizedPolygon, center, theta):
         pass
 
-    def viewPortTransform(self, point, Wmax, Wmin, VPmax, VPmin):
-        x = (point[0] - Wmin[0]) / (Wmax[0] - Wmin[0]) * (VPmax[0] - VPmin[0])
-        y = (1 - (point[1] - Wmin[1]))(Wmax[1] - Wmin[1]) * (VPmax[1] - VPmin[1])
-        return self.homogenizePoint([x,y])
+    def transformViewPortX(self, Xw, Xwmin, Xwmax, Xvpmax, Xvpmin):
+        return (Xw - Xwmin)/(Xwmax - Xwmin)*(Xvpmax - Xvpmin)
+    
+    def transformViewPortY(self, Yw, Ywmin, Ywmax, Yvpmax, Yvpmin):
+        return (1 - (Yw - Ywmin)/(Ywmax - Ywmin))*(Yvpmax - Yvpmin)
+    
         
     def polygonCenter(self, polygon):
         n = len(polygon)
