@@ -97,8 +97,9 @@ class App:
             if (i.tipo == 'Reta' or i.tipo == 'Wireframe'):
                 coords = []
                 for coordXY in i.coordenates:
-                    coords += [coordXY.x, coordXY.y]
-                
+                    coords += [coordXY.x, coordXY.y] 
+                # precisa incluir a primeira coordenada de novo pra que seja feita a linha tbm da ultima coordenada com a primeira:
+                coords += [i.coordenates[0].x, i.coordenates[0].y]
                 self.canvas.create_line(coords)
             else:
                 self.canvas.create_oval(i.coordenates[0].x - 0.5, i.coordenates[0].y - 0.5, i.coordenates[0].x + 0.5, i.coordenates[0].y + 0.5)
@@ -116,15 +117,15 @@ class App:
         Label(frameName, text="Nome ").pack(side=LEFT, pady=(0,10), padx=(5,0))
         Entry(frameName, textvariable=self.objectName, width=250).pack(side=LEFT, fill=X, pady=(0,10), padx=(0,10))
         
-        tabControl = ttk.Notebook(self.newWindow)
+        self.tabControl = ttk.Notebook(self.newWindow)
         
-        tabPonto = Frame(tabControl)
+        tabPonto = Frame(self.tabControl)
         tabPonto.pack(fill=Y, expand=1)
-        tabReta = Frame(tabControl)
-        tabWireframe = Frame(tabControl)
-        tabControl.add(tabPonto, text='Ponto')
-        tabControl.add(tabReta, text='Reta')
-        tabControl.add(tabWireframe, text="Wireframe")
+        tabReta = Frame(self.tabControl)
+        self.tabWireframe = Frame(self.tabControl)
+        self.tabControl.add(tabPonto, text='Ponto')
+        self.tabControl.add(tabReta, text='Reta')
+        self.tabControl.add(self.tabWireframe, text="Wireframe")
 
         # Ponto:
         framePonto = Frame(tabPonto)
@@ -136,7 +137,6 @@ class App:
         Label(framePonto, text='Y = ').grid(row=0, column=2)
         Entry(framePonto, textvariable=self.y1, width=13).grid(row=0, column=3)
         Button(framePonto, text="Incluir Ponto", bg="lightgreen", command=lambda: self.addCoordenates("Ponto")).grid(row=1, column=0, columnspan=10, sticky=W+E+N+S)
-
         
         # Reta:
         frameReta = Frame(tabReta)
@@ -154,34 +154,63 @@ class App:
         Button(frameReta, text="Incluir Reta", bg="lightgreen", command=lambda: self.addCoordenates("Reta")).grid(row=2, column=0, columnspan=10, sticky=W+E+N+S)
         
         # Wireframe:
-        frameWire = Frame(tabWireframe)
-        frameWire.pack(fill=X)
-        Button(frameWire, text="Incluir Wireframe", bg="lightgreen", command=lambda: self.addCoordenates("Wireframe")).pack(side=BOTTOM)
+        # Gambiarra PESADA feita aqui xD
+        self.mudancas = 0
+        self.frameWire = Frame(self.tabWireframe)
+        self.frameWire.pack(fill=X)
+        self.vertices = IntVar()
+        self.vertices.trace("w", lambda x,y,z: [self.updateWireframeAdd(), self.updateMudancas()])
+        Label(self.frameWire, text="Quantidade de Vértices do Wireframe: ").grid(row=0, column=0)
+        Entry(self.frameWire, textvariable=self.vertices).grid(row=0, column=1)
+        self.frameCoords = Frame(self.frameWire)
+        self.frameCoords.grid(row=1, column=0, columnspan=2)
 
-        
         # pack do tabControl (tem q ser depois de toda a config dos tabs)
-        tabControl.pack(fill=BOTH)
-        
-        # frame de incluir objeto:
-        # frameIncludeObject = Frame(self.newWindow)
-        # frameIncludeObject.pack(side=BOTTOM)
-        # Button(frameIncludeObject, text="Incluir Objeto", bg="lightgreen", command=self.addCoordenates).pack()
+        self.tabControl.pack(fill=BOTH)
 
+    def updateMudancas(self):
+        print('mudanca')
+        self.mudancas += 1
+        print('valor mudanca: '+str(self.mudancas))
+
+    def updateWireframeAdd(self):
+        # ele entra na função 2x devido ao trace (na hora que apaga e escreve valor)
+        # na 1a entrada ele da um exception de tipo esperado int e encontra "". Não quebra nada
+        # mas coloquei esse try/except só pra não encher o terminal de exceptions xD
+        try:
+            if (self.mudancas > 2):
+                self.frameCoords.grid_forget()
+                self.frameCoords.destroy()
+                self.frameCoords = Frame(self.frameWire)
+                self.frameCoords.grid(row=1, column=0)
+            print("número de vértices: "+str(self.vertices.get()))
+            self.wireFrameX = []
+            self.wireFrameY = []
+            for i in range(self.vertices.get()):
+                self.wireFrameX.append(DoubleVar())
+                self.wireFrameY.append(DoubleVar())
+                Label(self.frameCoords, text="X"+str(i+1)+" = ").grid(row=i, column=0)
+                Entry(self.frameCoords, textvariable=self.wireFrameX[i], width=10).grid(row=i, column=1)
+                Label(self.frameCoords, text="Y"+str(i+1)+" = ").grid(row=i, column=2)
+                Entry(self.frameCoords, textvariable=self.wireFrameY[i], width=10).grid(row=i, column=3)
+            Button(self.frameCoords, text="Incluir Wireframe", bg="lightgreen", command=lambda: self.addCoordenates("Wireframe")).grid(row=(self.vertices.get()), column=0)
+        except:
+            print("exception do updateWireframeAdd trollzinho")
 
     def addCoordenates(self, tipo):
+        # TODO: refatorar que depois q fiz o wireframe da pra deixar bem melhor
         name = self.objectName.get()
         if (tipo == "Ponto"):
             self.log.insert(0, "Ponto")
             x = self.x1.get()
             y = self.y1.get()
             self.objectCoordenates.append(Coordenates(x, y))
-            ponto = Objeto(name, self.objectCoordenates ,tipo)
-            # refatorar pra mostrar mais bonitinho na lista:
-            self.listObjects.insert(END, ponto.name)
-            self.log.insert(0, "Objeto "+ ponto.name + " incluido")
-            self.displayFile.append(ponto)
-            self.renderObjetcs()
-            self.newWindow.destroy()
+            # ponto = Objeto(name, self.objectCoordenates ,tipo)
+            # self.listObjects.insert(END, ponto.name)
+            # self.log.insert(0, "Objeto "+ ponto.name + " incluido")
+            # self.displayFile.append(ponto)
+            # self.renderObjetcs()
+            # self.newWindow.destroy()
         elif (tipo == "Reta"):
             self.log.insert(0, "Reta")
             x1 = self.x1.get()
@@ -190,14 +219,22 @@ class App:
             y2 = self.y2.get()
             self.objectCoordenates.append(Coordenates(x1, y1))
             self.objectCoordenates.append(Coordenates(x2, y2))
-            reta = Objeto(name, self.objectCoordenates ,tipo)
-            self.listObjects.insert(END, reta.name)
-            self.log.insert(0, "Objeto "+ reta.name + " incluido")
-            self.displayFile.append(reta)
-            self.renderObjetcs()
-            self.newWindow.destroy()
+            # reta = Objeto(name, self.objectCoordenates ,tipo)
+            # self.listObjects.insert(END, reta.name)
+            # self.log.insert(0, "Objeto "+ reta.name + " incluido")
+            # self.displayFile.append(reta)
+            # self.renderObjetcs()
+            # self.newWindow.destroy()
         elif (tipo == "Wireframe"):
             self.log.insert(0, "Wireframe")
+            for i in range(self.vertices.get()):
+                self.objectCoordenates.append(Coordenates(self.wireFrameX[i].get(), self.wireFrameY[i].get()))
         
-        self.log.insert(0, "coords: " + str(self.objectCoordenates[len(self.objectCoordenates)-1]))
+        objeto = Objeto(name, self.objectCoordenates ,tipo)
+        self.listObjects.insert(END, objeto.name)
+        self.log.insert(0, "Objeto "+ objeto.name + " incluido")
+        self.displayFile.append(objeto)
+        self.renderObjetcs()
+        self.newWindow.destroy()    
+        
         
