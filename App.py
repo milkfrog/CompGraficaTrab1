@@ -55,8 +55,8 @@ class App:
         Button(frameDirecoes, text="←", command=lambda: self.moveWindow("w")).grid(row=1, column=0)
         Button(frameDirecoes, text="↓", command=lambda: self.moveWindow("s")).grid(row=1, column=1)
         Button(frameDirecoes, text="→", command=lambda: self.moveWindow("e")).grid(row=1, column=2)
-        Button(frameZoom, text="+").grid(row=0, column=0)
-        Button(frameZoom, text="-").grid(row=1, column=0)
+        Button(frameZoom, text="+", command=lambda: self.zoomWindow("+")).grid(row=0, column=0)
+        Button(frameZoom, text="-", command=lambda: self.zoomWindow("-")).grid(row=1, column=0)
 
         # frame da ViewPort:
         frameViewPort = LabelFrame(self.root, text="ViewPort")
@@ -105,15 +105,22 @@ class App:
             else:
                 self.canvas.create_oval(i.coordenates[0].x - 0.5, i.coordenates[0].y - 0.5, i.coordenates[0].x + 0.5, i.coordenates[0].y + 0.5)
 
+    def zoomWindow(self, tipo):
+        operador = +1 if tipo == "+" else -1
+        self.windowZoomX += operador * self.canvas.winfo_width() * 0.05
+        self.windowZoomY += operador * self.canvas.winfo_height() * 0.05
+        self.log.insert(0, "zoom "+tipo+" na Window")
+        self.renderObjetcs()
+
     def moveWindow(self, direction):
         if (direction == "n"):
-            self.windowTransferY -= 10
-        elif (direction == "w"):
-            self.windowTransferX += 10
-        elif (direction == "s"):
             self.windowTransferY += 10
-        elif (direction == "e"):
+        elif (direction == "w"):
             self.windowTransferX -= 10
+        elif (direction == "s"):
+            self.windowTransferY -= 10
+        elif (direction == "e"):
+            self.windowTransferX += 10
         self.renderObjetcs()
         self.log.insert(0, "Window movida na direção "+direction)
     
