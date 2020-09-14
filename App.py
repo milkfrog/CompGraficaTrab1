@@ -51,10 +51,10 @@ class App:
         frameDirecoes.pack(side=LEFT, fill=X)
         frameZoom = Frame(labelWindow)
         frameZoom.pack(side=RIGHT)
-        Button(frameDirecoes, text="↑").grid(row=0, column=1)
-        Button(frameDirecoes, text="←").grid(row=1, column=0)
-        Button(frameDirecoes, text="↓").grid(row=1, column=1)
-        Button(frameDirecoes, text="→").grid(row=1, column=2)
+        Button(frameDirecoes, text="↑", command=lambda: self.moveWindow("n")).grid(row=0, column=1)
+        Button(frameDirecoes, text="←", command=lambda: self.moveWindow("w")).grid(row=1, column=0)
+        Button(frameDirecoes, text="↓", command=lambda: self.moveWindow("s")).grid(row=1, column=1)
+        Button(frameDirecoes, text="→", command=lambda: self.moveWindow("e")).grid(row=1, column=2)
         Button(frameZoom, text="+").grid(row=0, column=0)
         Button(frameZoom, text="-").grid(row=1, column=0)
 
@@ -72,9 +72,10 @@ class App:
         self.log.pack(fill=X)
 
     def renderObjetcs(self):
-        # fazer a transformada de viewPort antes de printar:
+        # deletando o que tiver desenhado no canvas:
+        self.canvas.delete("all")
+        # calculando as variaveis da transformada de ViewPort:
         self.objetosTransformados = []
-        # calculando as variaveis da transformada de ViewPort
         # limites ViewPort:
         Xvpmin = 0 - self.windowZoomX
         Yvpmin = 0 - self.windowZoomY
@@ -104,6 +105,18 @@ class App:
             else:
                 self.canvas.create_oval(i.coordenates[0].x - 0.5, i.coordenates[0].y - 0.5, i.coordenates[0].x + 0.5, i.coordenates[0].y + 0.5)
 
+    def moveWindow(self, direction):
+        if (direction == "n"):
+            self.windowTransferY -= 10
+        elif (direction == "w"):
+            self.windowTransferX += 10
+        elif (direction == "s"):
+            self.windowTransferY += 10
+        elif (direction == "e"):
+            self.windowTransferX -= 10
+        self.renderObjetcs()
+        self.log.insert(0, "Window movida na direção "+direction)
+    
     def addObject(self):
         self.objectCoordenates = []
         self.newWindow = Toplevel(self.root)
