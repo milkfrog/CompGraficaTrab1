@@ -1,5 +1,5 @@
 from math import *
-import numpy as np
+import sympy as sp
 
 # A point is simply an array [x,y]
 # A line is an array of 2 points [pointA,pointB]
@@ -15,7 +15,6 @@ class Coordenates:
         return str(self.x) + ',' + str(self.y)
 
 class Objeto:
-
     def __init__(self, name, coordenates, tipo):
         self.name = name
         self.coordenates = coordenates
@@ -30,17 +29,25 @@ class Objeto:
 
 class Operations:
     def homogenizePoint(self, point):
-        return np.array([point[0],point[1],1])
-  
+        return sp.matrix([[point[0],point[1],1]])
+
     def homogenizePolygon(self,polygon):
-        p = np.zeroes(shape(len(polygon),3))
-        for i,point in enumerate(polygon):
-            p[i] = self.homogenizePoint(polygon[i])
-        return p
+        pass
+
+    def genericTransformation(self, object, tMatrix):
+        temp_oMatrix = []
+        for point in object.coordenates:
+            temp_oMatrix.append([point.x, point.y, 1])
+        oMatrix = sp.Matrix(temp_oMatrix)
+        transformedMatrix = oMatrix * tMatrix
+        coordinates = []
+        for row in transformedMatrix.rowspace():
+            coordinates.append(Coordenates(row[0],row[1]))
+        return Objeto(object.name, coordinates, object.tipo)
 
     def translate(self, homogenizedPolygon, tVector):
-        tMatrix = np.array([[1,0,0],[0,1,0],[tVector[0],tVector[1],1]])
-        return np.multiply(homogenizedPolygon, tMatrix)
+        tMatrix = sp.Matrix([[1,0,0],[0,1,0],[tVector[0],tVector[1],1]])
+        return homogenizedPolygon * tMatrix
 
     def scale(self, homogenizedPolygon, sVector):
         pass
@@ -53,13 +60,12 @@ class Operations:
     
     def transformViewPortY(self, Yw, Ywmin, Ywmax, Yvpmax, Yvpmin):
         return (1 - (Yw - Ywmin)/(Ywmax - Ywmin))*(Yvpmax - Yvpmin)
-    
-        
+
     def polygonCenter(self, polygon):
         n = len(polygon)
         sumx = 0
         sumy = 0
         for point in polygon:
-            sumx += point[0]
-            sumy += point[1]
-        return self.homogenizePoint([sumx/n, sumy/n])
+            sumx += point.x
+            sumy += point.y
+        return Coordenates(sumx/n, sumy/n)

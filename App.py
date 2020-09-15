@@ -1,6 +1,9 @@
+# coding: utf-8
 from tkinter import *
 from tkinter import ttk
-from math import *
+from sympy import Matrix
+from math import sin, cos, pi
+
 from Objects import Coordenates, Objeto, Operations
 
 
@@ -57,6 +60,41 @@ class App:
         Button(frameDirecoes, text="→", command=lambda: self.moveWindow("e")).grid(row=1, column=2)
         Button(frameZoom, text="+", command=lambda: self.zoomWindow("+")).grid(row=0, column=0)
         Button(frameZoom, text="-", command=lambda: self.zoomWindow("-")).grid(row=1, column=0)
+
+        # frame de Transformacao de Objetos
+        self.opcaoCentroDeRotacao = StringVar()
+        opcoesCentroDeRotacao = {'Mundo', 'Objeto', 'Ponto Qualquer'}
+        self.opcaoCentroDeRotacao.set('Objeto')
+        self.centroDeRotacaoX = DoubleVar()
+        self.centroDeRotacaoY = DoubleVar()
+        labelTransformacoes = LabelFrame(menuDeFuncoes, text="Trasformacao de Objetos", width=100)
+        labelTransformacoes.pack(side=TOP, fill=X, pady=(10,0))
+        labelTranslacaoEscalonamento = LabelFrame(labelTransformacoes, text="Translacao e Escalonamento")
+        labelTranslacaoEscalonamento.pack(side=TOP, fill=X)
+        frameTranslacao = Frame(labelTranslacaoEscalonamento)
+        frameTranslacao.pack(side=LEFT, fill=X)
+        frameEscalonamento = Frame(labelTranslacaoEscalonamento)
+        frameEscalonamento.pack(side=RIGHT)
+        labelRotacao = LabelFrame(labelTransformacoes, text="Rotacao")
+        labelRotacao.pack(side=TOP, fill=X)
+        frameRotacaoBotoes = Frame(labelRotacao)
+        frameRotacaoBotoes.pack(side=LEFT, fill=X)
+        frameRotacaoOpcoes = Frame(labelRotacao)
+        frameRotacaoOpcoes.pack(side=RIGHT)
+        Button(frameTranslacao, text="↑", command=lambda: self.moveObject("n")).grid(row=0, column=1)
+        Button(frameTranslacao, text="←", command=lambda: self.moveObject("w")).grid(row=1, column=0)
+        Button(frameTranslacao, text="↓", command=lambda: self.moveObject("s")).grid(row=1, column=1)
+        Button(frameTranslacao, text="→", command=lambda: self.moveObject("e")).grid(row=1, column=2)
+        Button(frameEscalonamento, text="+", command=lambda: self.scaleObject("+")).grid(row=0, column=0)
+        Button(frameEscalonamento, text="-", command=lambda: self.scaleObject("-")).grid(row=1, column=0)
+        Button(frameRotacaoBotoes, text="↺", command=lambda: self.rotateObject("l")).grid(row=0, column=0)
+        Button(frameRotacaoBotoes, text="↻", command=lambda: self.rotateObject("r")).grid(row=0, column=1)
+        Label(frameRotacaoOpcoes, text="Centro: ").grid(row=0, column=0)
+        OptionMenu(frameRotacaoOpcoes, self.opcaoCentroDeRotacao, *opcoesCentroDeRotacao).grid(row=0, column=1)
+        Label(frameRotacaoOpcoes, text="X = ").grid(row=1, column=0)
+        Entry(frameRotacaoOpcoes, textvariable=self.centroDeRotacaoX, width=10).grid(row=1,column=1)
+        Label(frameRotacaoOpcoes, text="Y = ").grid(row=2, column=0)
+        Entry(frameRotacaoOpcoes, textvariable=self.centroDeRotacaoY, width=10).grid(row=2, column=1)
 
         # frame da ViewPort:
         frameViewPort = LabelFrame(self.root, text="ViewPort")
@@ -123,6 +161,70 @@ class App:
             self.windowTransferX += 10
         self.renderObjetcs()
         self.log.insert(0, "Window movida na direção "+direction)
+
+    def moveObject(self, direction):
+        obj = self.displayFile[self.listObjects.curselection()[0]]
+        tMatrix = Matrix.eye(3)
+        if (direction == "n"):
+            tMatrix[2,1] = 10
+        elif (direction == "w"):
+            tMatrix[2,0] = -10
+        elif (direction == "s"):
+            tMatrix[2,1] = -10
+        elif (direction == "e"):
+            tMatrix[2,0] = 10
+        nobj = Operations.genericTransformation(self, obj, tMatrix)
+        self.displayFile[self.listObjects.curselection()[0]] = nobj
+        self.renderObjetcs()
+        self.log.insert(0, obj.name+" movido na direcao "+direction)
+
+
+    def rotateObject(self, direction):
+        obj = self.displayFile[self.listObjects.curselection()[0]]
+        if (self.opcaoCentroDeRotacao.get() == "Mundo"):
+            centro = Coordenates(0,0)
+        elif (self.opcaoCentroDeRotacao.get() == "Objeto"):
+            centro = Operations.polygonCenter(self, obj.coordenates)
+        else:
+            centro = Coordenates(float(self.centroDeRotacaoX.get()), float(self.centroDeRotacaoY.get()))
+        mMatrix = Matrix.eye(3)
+        mMatrix[2,0] = -centro.x
+        mMatrix[2,1] = -centro.y
+        dir = 1 if direction == "r" else -1
+        rMatrix = Matrix.eye(3)
+        c = cos(dir * pi/3)
+        s = sin(dir * pi/3)
+        rMatrix[0,0] = c
+        rMatrix[0,1] = -s
+        rMatrix[1,1] = c
+        rMatrix[1,0] = s
+        bMatrix = Matrix.eye(3)
+        bMatrix[2,0] = centro.x
+        bMatrix[2,1] = centro.y
+        tMatrix = mMatrix * rMatrix * bMatrix
+        nobj = Operations.genericTransformation(self, obj, tMatrix)
+        self.displayFile[self.listObjects.curselection()[0]] = nobj
+        self.renderObjetcs()
+        self.log.insert(0, obj.name+" ampliado na direcao "+direction)
+
+    def scaleObject(self, tipo):
+        obj = self.displayFile[self.listObjects.curselection()[0]]
+        centro = Operations.polygonCenter(self, obj.coordenates)
+        mMatrix = Matrix.eye(3)
+        mMatrix[2,0] = -centro.x
+        mMatrix[2,1] = -centro.y
+        z = 1.5 if tipo == "+" else 0.5
+        sMatrix = Matrix.eye(3)
+        sMatrix[0,0] = z
+        sMatrix[1,1] = z
+        bMatrix = Matrix.eye(3)
+        bMatrix[2,0] = centro.x
+        bMatrix[2,1] = centro.y
+        tMatrix = mMatrix * sMatrix * bMatrix
+        nobj = Operations.genericTransformation(self, obj, tMatrix)
+        self.displayFile[self.listObjects.curselection()[0]] = nobj
+        self.renderObjetcs()
+        self.log.insert(0, obj.name+"  na direcao "+tipo)
     
     def addObject(self):
         self.objectCoordenates = []
@@ -218,7 +320,7 @@ class App:
             print("exception do updateWireframeAdd trollzinho")
 
     def addCoordenates(self, tipo):
-        # TODO: refatorar que depois q fiz o wireframe da pra deixar bem melhor
+        #  TODO: refatorar que depois q fiz o wireframe da pra deixar bem melhor
         name = self.objectName.get()
         if (tipo == "Ponto"):
             self.log.insert(0, "Ponto")
