@@ -2,7 +2,7 @@
 from tkinter import *
 from tkinter import ttk
 from sympy import Matrix
-from math import sin, cos, pi
+from math import sin, cos, pi, ceil
 
 from Objects import Coordenates, Objeto, Operations
 
@@ -169,8 +169,7 @@ class App:
     def moveObject(self, direction):
         valorDeTranslacao = 10
         try:
-            indexObjectSelected = self.listObjects.curselection()[0]
-            obj = self.displayFile[indexObjectSelected]
+            obj = self.displayFile[self.listObjects.curselection()[0]]
             # cria matriz identidade 3x3:
             tMatrix = Matrix.eye(3)
             if (direction == "n"):
@@ -190,32 +189,36 @@ class App:
 
 
     def rotateObject(self, direction):
-        obj = self.displayFile[self.listObjects.curselection()[0]]
-        if (self.opcaoCentroDeRotacao.get() == "Mundo"):
-            centro = Coordenates(0,0)
-        elif (self.opcaoCentroDeRotacao.get() == "Objeto"):
-            centro = Operations.polygonCenter(self, obj.coordenates)
-        else:
-            centro = Coordenates(float(self.centroDeRotacaoX.get()), float(self.centroDeRotacaoY.get()))
-        mMatrix = Matrix.eye(3)
-        mMatrix[2,0] = -centro.x
-        mMatrix[2,1] = -centro.y
-        dir = 1 if direction == "r" else -1
-        rMatrix = Matrix.eye(3)
-        c = cos(dir * pi/3)
-        s = sin(dir * pi/3)
-        rMatrix[0,0] = c
-        rMatrix[0,1] = -s
-        rMatrix[1,1] = c
-        rMatrix[1,0] = s
-        bMatrix = Matrix.eye(3)
-        bMatrix[2,0] = centro.x
-        bMatrix[2,1] = centro.y
-        tMatrix = mMatrix * rMatrix * bMatrix
-        nobj = Operations.genericTransformation(self, obj, tMatrix)
-        self.displayFile[self.listObjects.curselection()[0]] = nobj
-        self.renderObjetcs()
-        self.log.insert(0, obj.name+" ampliado na direcao "+direction)
+        valorDeRotacao = pi/3
+        try:
+            obj = self.displayFile[self.listObjects.curselection()[0]]
+            if (self.opcaoCentroDeRotacao.get() == "Mundo"):
+                centro = Coordenates(0,0)
+            elif (self.opcaoCentroDeRotacao.get() == "Objeto"):
+                centro = Operations.polygonCenter(self, obj.coordenates)
+            else:
+                centro = Coordenates(float(self.centroDeRotacaoX.get()), float(self.centroDeRotacaoY.get()))
+            mMatrix = Matrix.eye(3)
+            mMatrix[2,0] = -centro.x
+            mMatrix[2,1] = -centro.y
+            rotacao = 1 if direction == "r" else -1
+            rMatrix = Matrix.eye(3)
+            c = cos(rotacao * valorDeRotacao)
+            s = sin(rotacao * valorDeRotacao)
+            rMatrix[0,0] = c
+            rMatrix[0,1] = -s
+            rMatrix[1,1] = c
+            rMatrix[1,0] = s
+            bMatrix = Matrix.eye(3)
+            bMatrix[2,0] = centro.x
+            bMatrix[2,1] = centro.y
+            tMatrix = mMatrix * rMatrix * bMatrix
+            nobj = Operations.genericTransformation(self, obj, tMatrix)
+            self.displayFile[self.listObjects.curselection()[0]] = nobj
+            self.renderObjetcs()
+            self.log.insert(0, obj.name+" rotacionado em "+str(ceil(valorDeRotacao*(180/pi)))+" graus na direção "+("↺" if direction == "l" else "↻")+" no "+str(self.opcaoCentroDeRotacao.get()))
+        except:
+            self.log.insert(0, "Selecione um objeto primeiro.")
 
     def scaleObject(self, tipo):
         obj = self.displayFile[self.listObjects.curselection()[0]]
@@ -234,10 +237,10 @@ class App:
         nobj = Operations.genericTransformation(self, obj, tMatrix)
         self.displayFile[self.listObjects.curselection()[0]] = nobj
         self.renderObjetcs()
-        self.log.insert(0, obj.name+"  na direcao "+tipo)
+        self.log.insert(0, obj.name+(" ampliado" if tipo == "+" else " reduzido"))
     
     def removeObject(self):
-        self.log.insert(0, "Objeto "+self.listObjects.get(self.listObjects.curselection()) + " removido")
+        self.log.insert(0, "Objeto "+self.displayFile[(self.listObjects.curselection()[0])].name + " removido")
         self.displayFile.pop(self.listObjects.curselection()[0])
         self.listObjects.delete(self.listObjects.curselection()[0])
         self.renderObjetcs()
@@ -246,8 +249,8 @@ class App:
         self.objectCoordenates = []
         self.newWindow = Toplevel(self.root)
         self.newWindow.title("Incluir Objeto")
-        self.newWindow.geometry("300x300")
-        self.newWindow.minsize(300, 300)
+        self.newWindow.geometry("500x300")
+        self.newWindow.minsize(500, 300)
         # frame do nome:
         frameName = Frame(self.newWindow)
         frameName.pack(pady=(10,0), fill=X)
@@ -321,7 +324,6 @@ class App:
                 self.frameCoords.destroy()
                 self.frameCoords = Frame(self.frameWire)
                 self.frameCoords.grid(row=1, column=0)
-            print("número de vértices: "+str(self.vertices.get()))
             self.wireFrameX = []
             self.wireFrameY = []
             for i in range(self.vertices.get()):
