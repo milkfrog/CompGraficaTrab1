@@ -4,7 +4,8 @@ from tkinter import ttk
 from sympy import Matrix
 from math import sin, cos, pi, ceil
 
-from Objects import Coordenates, Objeto, Operations
+from Objects import Coordinates, Objeto
+import Objects as Opr
 
 
 class App:
@@ -43,9 +44,9 @@ class App:
         self.listObjects = Listbox(frameObjetos, width=40, selectmode=SINGLE)
         self.listObjects.pack()
         frameRemoveAdd = Frame(frameObjetos)
-        frameRemoveAdd.pack(pady=(10,0))
-        Button(frameRemoveAdd, text="Incluir Objeto", bg="lightgreen", command=self.addObject).pack(side=LEFT, padx=(5,15))
-        Button(frameRemoveAdd, text="Remover Objeto", bg="#ffcccb", command=self.removeObject).pack(side=RIGHT, padx=(0,5))
+        frameRemoveAdd.pack(pady=(10, 0))
+        Button(frameRemoveAdd, text="Incluir Objeto", bg="lightgreen", command=self.addObject).pack(side=LEFT, padx=(5, 15))
+        Button(frameRemoveAdd, text="Remover Objeto", bg="#ffcccb", command=self.removeObject).pack(side=RIGHT, padx=(0, 5))
         
         # frame da Window:
         labelWindow = LabelFrame(menuDeFuncoes, text="Window", width=100)
@@ -68,7 +69,7 @@ class App:
         self.centroDeRotacaoX = DoubleVar()
         self.centroDeRotacaoY = DoubleVar()
         labelTransformacoes = LabelFrame(menuDeFuncoes, text="Trasformacao de Objetos", width=100)
-        labelTransformacoes.pack(side=TOP, fill=X, pady=(10,0))
+        labelTransformacoes.pack(side=TOP, fill=X, pady=(10, 0))
         labelTranslacaoEscalonamento = LabelFrame(labelTransformacoes, text="Translacao e Escalonamento")
         labelTranslacaoEscalonamento.pack(side=TOP, fill=X)
         frameTranslacao = Frame(labelTranslacaoEscalonamento)
@@ -125,25 +126,25 @@ class App:
         Xwmax = self.canvas.winfo_width() + self.windowTransferX
         Ywmax = self.canvas.winfo_height() + self.windowTransferY
         for i in self.displayFile:
-            listCoordenatesTransformed = []
-            for coords in i.coordenates:
-                Xvp = Operations.transformViewPortX(self, coords.x, Xwmin, Xwmax, Xvpmax, Xvpmin)
-                Yvp = Operations.transformViewPortY(self, coords.y, Ywmin, Ywmax, Yvpmax, Yvpmin)
-                listCoordenatesTransformed.append(Coordenates(Xvp, Yvp))
-            objectTransformed = Objeto(i.name, listCoordenatesTransformed ,i.tipo, i.quantidade)
+            listCoordinatesTransformed = []
+            for coords in i.coordinates:
+                Xvp = Opr.transformViewPortX(coords.x, Xwmin, Xwmax, Xvpmax, Xvpmin)
+                Yvp = Opr.transformViewPortY(coords.y, Ywmin, Ywmax, Yvpmax, Yvpmin)
+                listCoordinatesTransformed.append(Coordinates(Xvp, Yvp))
+            objectTransformed = Objeto(i.name, listCoordinatesTransformed, i.tipo, i.quantidade)
             self.objetosTransformados.append(objectTransformed)
         # fim transformada de ViewPort
         # inicio desenho no canvas:
         for i in self.objetosTransformados:
-            if (i.tipo == 'Reta' or i.tipo == 'Wireframe'):
+            if i.tipo == 'Reta' or i.tipo == 'Wireframe':
                 coords = []
-                for coordXY in i.coordenates:
+                for coordXY in i.coordinates:
                     coords += [coordXY.x, coordXY.y] 
                 # precisa incluir a primeira coordenada de novo pra que seja feita a linha tbm da ultima coordenada com a primeira:
-                coords += [i.coordenates[0].x, i.coordenates[0].y]
+                coords += [i.coordinates[0].x, i.coordinates[0].y]
                 self.canvas.create_line(coords)
             else:
-                self.canvas.create_oval(i.coordenates[0].x - 0.5, i.coordenates[0].y - 0.5, i.coordenates[0].x + 0.5, i.coordenates[0].y + 0.5)
+                self.canvas.create_oval(i.coordinates[0].x - 0.5, i.coordinates[0].y - 0.5, i.coordinates[0].x + 0.5, i.coordinates[0].y + 0.5)
         # fim desenho no canvas
 
     def zoomWindow(self, tipo):
@@ -172,15 +173,15 @@ class App:
             obj = self.displayFile[self.listObjects.curselection()[0]]
             # cria matriz identidade 3x3:
             tMatrix = Matrix.eye(3)
-            if (direction == "n"):
-                tMatrix[2,1] = valorDeTranslacao
-            elif (direction == "w"):
-                tMatrix[2,0] = -valorDeTranslacao
-            elif (direction == "s"):
-                tMatrix[2,1] = -valorDeTranslacao
-            elif (direction == "e"):
-                tMatrix[2,0] = valorDeTranslacao
-            nobj = Operations.genericTransformation(self, obj, tMatrix)
+            if direction == "n":
+                tMatrix[2, 1] = valorDeTranslacao
+            elif direction == "w":
+                tMatrix[2, 0] = -valorDeTranslacao
+            elif direction == "s":
+                tMatrix[2, 1] = -valorDeTranslacao
+            elif direction == "e":
+                tMatrix[2, 0] = valorDeTranslacao
+            nobj = Opr.genericTransformation(obj, tMatrix)
             self.displayFile[self.listObjects.curselection()[0]] = nobj
             self.renderObjetcs()
             self.log.insert(0, obj.name+" movido na direcao "+direction)
@@ -192,28 +193,28 @@ class App:
         valorDeRotacao = pi/3
         try:
             obj = self.displayFile[self.listObjects.curselection()[0]]
-            if (self.opcaoCentroDeRotacao.get() == "Mundo"):
-                centro = Coordenates(0,0)
-            elif (self.opcaoCentroDeRotacao.get() == "Objeto"):
-                centro = Operations.polygonCenter(self, obj.coordenates)
+            if self.opcaoCentroDeRotacao.get() == "Mundo":
+                centro = Coordinates(0, 0)
+            elif self.opcaoCentroDeRotacao.get() == "Objeto":
+                centro = Opr.polygonCenter(obj.coordinates)
             else:
-                centro = Coordenates(float(self.centroDeRotacaoX.get()), float(self.centroDeRotacaoY.get()))
+                centro = Coordinates(float(self.centroDeRotacaoX.get()), float(self.centroDeRotacaoY.get()))
             mMatrix = Matrix.eye(3)
-            mMatrix[2,0] = -centro.x
-            mMatrix[2,1] = -centro.y
+            mMatrix[2, 0] = -centro.x
+            mMatrix[2, 1] = -centro.y
             rotacao = 1 if direction == "r" else -1
             rMatrix = Matrix.eye(3)
             c = cos(rotacao * valorDeRotacao)
             s = sin(rotacao * valorDeRotacao)
-            rMatrix[0,0] = c
-            rMatrix[0,1] = -s
-            rMatrix[1,1] = c
-            rMatrix[1,0] = s
+            rMatrix[0, 0] = c
+            rMatrix[0, 1] = -s
+            rMatrix[1, 1] = c
+            rMatrix[1, 0] = s
             bMatrix = Matrix.eye(3)
-            bMatrix[2,0] = centro.x
-            bMatrix[2,1] = centro.y
+            bMatrix[2, 0] = centro.x
+            bMatrix[2, 1] = centro.y
             tMatrix = mMatrix * rMatrix * bMatrix
-            nobj = Operations.genericTransformation(self, obj, tMatrix)
+            nobj = Opr.genericTransformation(obj, tMatrix)
             self.displayFile[self.listObjects.curselection()[0]] = nobj
             self.renderObjetcs()
             self.log.insert(0, obj.name+" rotacionado em "+str(ceil(valorDeRotacao*(180/pi)))+" graus na direção "+("↺" if direction == "l" else "↻")+" no "+str(self.opcaoCentroDeRotacao.get()))
@@ -222,19 +223,19 @@ class App:
 
     def scaleObject(self, tipo):
         obj = self.displayFile[self.listObjects.curselection()[0]]
-        centro = Operations.polygonCenter(self, obj.coordenates)
+        centro = Opr.polygonCenter(obj.coordinates)
         mMatrix = Matrix.eye(3)
-        mMatrix[2,0] = -centro.x
-        mMatrix[2,1] = -centro.y
+        mMatrix[2, 0] = -centro.x
+        mMatrix[2, 1] = -centro.y
         z = 1.5 if tipo == "+" else 0.5
         sMatrix = Matrix.eye(3)
-        sMatrix[0,0] = z
-        sMatrix[1,1] = z
+        sMatrix[0, 0] = z
+        sMatrix[1, 1] = z
         bMatrix = Matrix.eye(3)
-        bMatrix[2,0] = centro.x
-        bMatrix[2,1] = centro.y
+        bMatrix[2, 0] = centro.x
+        bMatrix[2, 1] = centro.y
         tMatrix = mMatrix * sMatrix * bMatrix
-        nobj = Operations.genericTransformation(self, obj, tMatrix)
+        nobj = Opr.genericTransformation(obj, tMatrix)
         self.displayFile[self.listObjects.curselection()[0]] = nobj
         self.renderObjetcs()
         self.log.insert(0, obj.name+(" ampliado" if tipo == "+" else " reduzido"))
@@ -246,17 +247,17 @@ class App:
         self.renderObjetcs()
     
     def addObject(self):
-        self.objectCoordenates = []
+        self.objectCoordinates = []
         self.newWindow = Toplevel(self.root)
         self.newWindow.title("Incluir Objeto")
         self.newWindow.geometry("500x300")
         self.newWindow.minsize(500, 300)
         # frame do nome:
         frameName = Frame(self.newWindow)
-        frameName.pack(pady=(10,0), fill=X)
+        frameName.pack(pady=(10, 0), fill=X)
         self.objectName = StringVar()
-        Label(frameName, text="Nome ").pack(side=LEFT, pady=(0,10), padx=(5,0))
-        Entry(frameName, textvariable=self.objectName, width=250).pack(side=LEFT, fill=X, pady=(0,10), padx=(0,10))
+        Label(frameName, text="Nome ").pack(side=LEFT, pady=(0, 10), padx=(5, 0))
+        Entry(frameName, textvariable=self.objectName, width=250).pack(side=LEFT, fill=X, pady=(0, 10), padx=(0, 10))
         
         self.tabControl = ttk.Notebook(self.newWindow)
         
@@ -277,7 +278,7 @@ class App:
         Entry(framePonto, textvariable=self.x1, width=13).grid(row=0, column=1)
         Label(framePonto, text='Y = ').grid(row=0, column=2)
         Entry(framePonto, textvariable=self.y1, width=13).grid(row=0, column=3)
-        Button(framePonto, text="Incluir Ponto", bg="lightgreen", command=lambda: self.addCoordenates("Ponto")).grid(row=1, column=0, columnspan=10, sticky=W+E+N+S)
+        Button(framePonto, text="Incluir Ponto", bg="lightgreen", command=lambda: self.addCoordinates("Ponto")).grid(row=1, column=0, columnspan=10, sticky=W+E+N+S)
         
         # Reta:
         frameReta = Frame(tabReta)
@@ -292,7 +293,7 @@ class App:
         Entry(frameReta, textvariable=self.x2, width=13).grid(row=1, column=1)
         Label(frameReta, text='Y2 = ').grid(row=1, column=2)
         Entry(frameReta, textvariable=self.y2, width=13).grid(row=1, column=3)
-        Button(frameReta, text="Incluir Reta", bg="lightgreen", command=lambda: self.addCoordenates("Reta")).grid(row=2, column=0, columnspan=10, sticky=W+E+N+S)
+        Button(frameReta, text="Incluir Reta", bg="lightgreen", command=lambda: self.addCoordinates("Reta")).grid(row=2, column=0, columnspan=10, sticky=W+E+N+S)
         
         # Wireframe:
         # Gambiarra PESADA feita aqui xD
@@ -300,7 +301,7 @@ class App:
         self.frameWire = Frame(self.tabWireframe)
         self.frameWire.pack(fill=X)
         self.vertices = IntVar()
-        self.vertices.trace("w", lambda x,y,z: [self.updateWireframeAdd(), self.updateMudancas()])
+        self.vertices.trace("w", lambda x, y, z: [self.updateWireframeAdd(), self.updateMudancas()])
         Label(self.frameWire, text="Quantidade de Vértices do Wireframe: ").grid(row=0, column=0)
         Entry(self.frameWire, textvariable=self.vertices).grid(row=0, column=1)
         self.frameCoords = Frame(self.frameWire)
@@ -319,7 +320,7 @@ class App:
         # na 1a entrada ele da um exception de tipo esperado int e encontra "". Não quebra nada
         # mas coloquei esse try/except só pra não encher o terminal de exceptions xD
         try:
-            if (self.mudancas > 2):
+            if self.mudancas > 2:
                 self.frameCoords.grid_forget()
                 self.frameCoords.destroy()
                 self.frameCoords = Frame(self.frameWire)
@@ -333,18 +334,18 @@ class App:
                 Entry(self.frameCoords, textvariable=self.wireFrameX[i], width=10).grid(row=i, column=1)
                 Label(self.frameCoords, text="Y"+str(i+1)+" = ").grid(row=i, column=2)
                 Entry(self.frameCoords, textvariable=self.wireFrameY[i], width=10).grid(row=i, column=3)
-            Button(self.frameCoords, text="Incluir Wireframe", bg="lightgreen", command=lambda: self.addCoordenates("Wireframe")).grid(row=(self.vertices.get()), column=0)
+            Button(self.frameCoords, text="Incluir Wireframe", bg="lightgreen", command=lambda: self.addCoordinates("Wireframe")).grid(row=(self.vertices.get()), column=0)
         except:
             print("exception do updateWireframeAdd trollzinho")
 
-    def addCoordenates(self, tipo):
+    def addCoordinates(self, tipo):
         #  TODO: refatorar que depois q fiz o wireframe da pra deixar bem melhor
         name = self.objectName.get()
         if (tipo == "Ponto"):
             self.log.insert(0, "Ponto")
             x = self.x1.get()
             y = self.y1.get()
-            self.objectCoordenates.append(Coordenates(x, y))
+            self.objectCoordinates.append(Coordinates(x, y))
             quantidade = 1
         elif (tipo == "Reta"):
             self.log.insert(0, "Reta")
@@ -352,22 +353,20 @@ class App:
             y1 = self.y1.get()
             x2 = self.x2.get()
             y2 = self.y2.get()
-            self.objectCoordenates.append(Coordenates(x1, y1))
-            self.objectCoordenates.append(Coordenates(x2, y2))
+            self.objectCoordinates.append(Coordinates(x1, y1))
+            self.objectCoordinates.append(Coordinates(x2, y2))
             quantidade = 2
         elif (tipo == "Wireframe"):
             self.log.insert(0, "Wireframe")
             quantidade = self.vertices.get()
             for i in range(quantidade):
-                self.objectCoordenates.append(Coordenates(self.wireFrameX[i].get(), self.wireFrameY[i].get()))
+                self.objectCoordinates.append(Coordinates(self.wireFrameX[i].get(), self.wireFrameY[i].get()))
         
-        objeto = Objeto(name, self.objectCoordenates ,tipo, quantidade)
+        objeto = Objeto(name, self.objectCoordinates, tipo, quantidade)
         indiceItensRegistrados = len(self.displayFile)
-        self.listObjects.insert(END, str(indiceItensRegistrados)+") "+objeto.name+"("+objeto.tipo+")")
-        self.log.insert(0, "Objeto "+ objeto.name + " incluido")
+        self.listObjects.insert(END, str(indiceItensRegistrados)+") " + objeto.name + "("+objeto.tipo+")")
+        self.log.insert(0, "Objeto " + objeto.name + " incluido")
         self.displayFile.append(objeto)
         
         self.renderObjetcs()
-        self.newWindow.destroy()    
-        
-        
+        self.newWindow.destroy()
