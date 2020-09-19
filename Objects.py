@@ -10,12 +10,14 @@ class Coordenates:
     def __init__(self, x, y):
         self.x = x
         self.y = y
+        self.z = 1.0
     
     def __str__(self):
         return str(self.x) + ',' + str(self.y)
 
 class Objeto:
-    def __init__(self, name, coordenates, tipo):
+    def __init__(self, name, coordenates, tipo, quantidade):
+        self.quantidade = quantidade
         self.name = name
         self.coordenates = coordenates
         self.tipo = tipo
@@ -34,16 +36,16 @@ class Operations:
     def homogenizePolygon(self,polygon):
         pass
 
-    def genericTransformation(self, object, tMatrix):
+    def genericTransformation(self, obj, tMatrix):
         temp_oMatrix = []
-        for point in object.coordenates:
-            temp_oMatrix.append([point.x, point.y, 1])
+        for point in obj.coordenates:
+            temp_oMatrix.append([point.x, point.y, point.z])
         oMatrix = sp.Matrix(temp_oMatrix)
         transformedMatrix = oMatrix * tMatrix
         coordinates = []
-        for row in transformedMatrix.rowspace():
-            coordinates.append(Coordenates(row[0],row[1]))
-        return Objeto(object.name, coordinates, object.tipo)
+        for i in range(obj.quantidade):
+            coordinates.append(Coordenates(transformedMatrix.row(i)[0], transformedMatrix.row(i)[1]))
+        return Objeto(obj.name, coordinates, obj.tipo, obj.quantidade)
 
     def translate(self, homogenizedPolygon, tVector):
         tMatrix = sp.Matrix([[1,0,0],[0,1,0],[tVector[0],tVector[1],1]])

@@ -24,7 +24,7 @@ class App:
         # render frame do Widget:
         self.renderWidget()
 
-        # Variáveis globais:
+        # Lista de objetos:
         self.displayFile = []
 
         # Inicializa:
@@ -112,7 +112,7 @@ class App:
     def renderObjetcs(self):
         # deletando o que tiver desenhado no canvas:
         self.canvas.delete("all")
-        # calculando as variaveis da transformada de ViewPort:
+        # inicio transformada de ViewPort:
         self.objetosTransformados = []
         # limites ViewPort:
         Xvpmin = 0 - self.windowZoomX
@@ -130,8 +130,10 @@ class App:
                 Xvp = Operations.transformViewPortX(self, coords.x, Xwmin, Xwmax, Xvpmax, Xvpmin)
                 Yvp = Operations.transformViewPortY(self, coords.y, Ywmin, Ywmax, Yvpmax, Yvpmin)
                 listCoordenatesTransformed.append(Coordenates(Xvp, Yvp))
-            objectTransformed = Objeto(i.name, listCoordenatesTransformed ,i.tipo)
+            objectTransformed = Objeto(i.name, listCoordenatesTransformed ,i.tipo, i.quantidade)
             self.objetosTransformados.append(objectTransformed)
+        # fim transformada de ViewPort
+        # inicio desenho no canvas:
         for i in self.objetosTransformados:
             if (i.tipo == 'Reta' or i.tipo == 'Wireframe'):
                 coords = []
@@ -142,6 +144,7 @@ class App:
                 self.canvas.create_line(coords)
             else:
                 self.canvas.create_oval(i.coordenates[0].x - 0.5, i.coordenates[0].y - 0.5, i.coordenates[0].x + 0.5, i.coordenates[0].y + 0.5)
+        # fim desenho no canvas
 
     def zoomWindow(self, tipo):
         operador = +1 if tipo == "+" else -1
@@ -151,32 +154,39 @@ class App:
         self.renderObjetcs()
 
     def moveWindow(self, direction):
+        valorDeTranslacao = 10
         if (direction == "n"):
-            self.windowTransferY += 10
+            self.windowTransferY += valorDeTranslacao
         elif (direction == "w"):
-            self.windowTransferX -= 10
+            self.windowTransferX -= valorDeTranslacao
         elif (direction == "s"):
-            self.windowTransferY -= 10
+            self.windowTransferY -= valorDeTranslacao
         elif (direction == "e"):
-            self.windowTransferX += 10
+            self.windowTransferX += valorDeTranslacao
         self.renderObjetcs()
         self.log.insert(0, "Window movida na direção "+direction)
 
     def moveObject(self, direction):
-        obj = self.displayFile[self.listObjects.curselection()[0]]
-        tMatrix = Matrix.eye(3)
-        if (direction == "n"):
-            tMatrix[2,1] = 10
-        elif (direction == "w"):
-            tMatrix[2,0] = -10
-        elif (direction == "s"):
-            tMatrix[2,1] = -10
-        elif (direction == "e"):
-            tMatrix[2,0] = 10
-        nobj = Operations.genericTransformation(self, obj, tMatrix)
-        self.displayFile[self.listObjects.curselection()[0]] = nobj
-        self.renderObjetcs()
-        self.log.insert(0, obj.name+" movido na direcao "+direction)
+        valorDeTranslacao = 10
+        try:
+            indexObjectSelected = self.listObjects.curselection()[0]
+            obj = self.displayFile[indexObjectSelected]
+            # cria matriz identidade 3x3:
+            tMatrix = Matrix.eye(3)
+            if (direction == "n"):
+                tMatrix[2,1] = valorDeTranslacao
+            elif (direction == "w"):
+                tMatrix[2,0] = -valorDeTranslacao
+            elif (direction == "s"):
+                tMatrix[2,1] = -valorDeTranslacao
+            elif (direction == "e"):
+                tMatrix[2,0] = valorDeTranslacao
+            nobj = Operations.genericTransformation(self, obj, tMatrix)
+            self.displayFile[self.listObjects.curselection()[0]] = nobj
+            self.renderObjetcs()
+            self.log.insert(0, obj.name+" movido na direcao "+direction)
+        except:
+            self.log.insert(0, "Selecione um objeto primeiro.")
 
 
     def rotateObject(self, direction):
@@ -333,6 +343,7 @@ class App:
             x = self.x1.get()
             y = self.y1.get()
             self.objectCoordenates.append(Coordenates(x, y))
+            quantidade = 1
         elif (tipo == "Reta"):
             self.log.insert(0, "Reta")
             x1 = self.x1.get()
@@ -341,16 +352,19 @@ class App:
             y2 = self.y2.get()
             self.objectCoordenates.append(Coordenates(x1, y1))
             self.objectCoordenates.append(Coordenates(x2, y2))
+            quantidade = 2
         elif (tipo == "Wireframe"):
             self.log.insert(0, "Wireframe")
-            for i in range(self.vertices.get()):
+            quantidade = self.vertices.get()
+            for i in range(quantidade):
                 self.objectCoordenates.append(Coordenates(self.wireFrameX[i].get(), self.wireFrameY[i].get()))
         
-        objeto = Objeto(name, self.objectCoordenates ,tipo)
+        objeto = Objeto(name, self.objectCoordenates ,tipo, quantidade)
         indiceItensRegistrados = len(self.displayFile)
         self.listObjects.insert(END, str(indiceItensRegistrados)+") "+objeto.name+"("+objeto.tipo+")")
         self.log.insert(0, "Objeto "+ objeto.name + " incluido")
         self.displayFile.append(objeto)
+        
         self.renderObjetcs()
         self.newWindow.destroy()    
         
