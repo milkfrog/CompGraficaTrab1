@@ -45,7 +45,7 @@ class App:
         frameRemoveAdd = Frame(frameObjetos)
         frameRemoveAdd.pack(pady=(10,0))
         Button(frameRemoveAdd, text="Incluir Objeto", bg="lightgreen", command=self.addObject).pack(side=LEFT, padx=(5,15))
-        Button(frameRemoveAdd, text="Remover Objeto", bg="#ffcccb").pack(side=RIGHT, padx=(0,5))
+        Button(frameRemoveAdd, text="Remover Objeto", bg="#ffcccb", command=self.removeObject).pack(side=RIGHT, padx=(0,5))
         
         # frame da Window:
         labelWindow = LabelFrame(menuDeFuncoes, text="Window", width=100)
@@ -225,6 +225,12 @@ class App:
         self.displayFile[self.listObjects.curselection()[0]] = nobj
         self.renderObjetcs()
         self.log.insert(0, obj.name+"  na direcao "+tipo)
+    
+    def removeObject(self):
+        self.log.insert(0, "Objeto "+self.listObjects.get(self.listObjects.curselection()) + " removido")
+        self.displayFile.pop(self.listObjects.curselection()[0])
+        self.listObjects.delete(self.listObjects.curselection()[0])
+        self.renderObjetcs()
     
     def addObject(self):
         self.objectCoordenates = []
