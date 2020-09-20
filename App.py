@@ -156,13 +156,13 @@ class App:
 
     def moveWindow(self, direction):
         valorDeTranslacao = 10
-        if (direction == "n"):
+        if direction == "n":
             self.windowTransferY += valorDeTranslacao
-        elif (direction == "w"):
+        elif direction == "w":
             self.windowTransferX -= valorDeTranslacao
-        elif (direction == "s"):
+        elif direction == "s":
             self.windowTransferY -= valorDeTranslacao
-        elif (direction == "e"):
+        elif direction == "e":
             self.windowTransferX += valorDeTranslacao
         self.renderObjetcs()
         self.log.insert(0, "Window movida na direção "+direction)
