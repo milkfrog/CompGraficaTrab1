@@ -17,10 +17,13 @@ class App:
         self.root.maxsize(1200, 800)
 
         # Configs iniciais:
-        self.windowZoomX = 0
-        self.windowZoomY = 0
-        self.windowTransferX = 0
-        self.windowTransferY = 0
+        window = Matrix.zeros(4, 3)
+        window[0, 0:2] = Matrix([self.canvas.winfo_width(), self.canvas.winfo_height(), 1])
+        window[1, 0:2] = Matrix([self.canvas.winfo_width(), 0, 1])
+        window[2, 0:2] = Matrix([0, 0, 1])
+        window[3, 0:2] = Matrix([0, self.canvas.winfo_height(), 1])
+        self.windowTransform = Matrix.eye(3)
+        self.windowRotation = 0
 
         # render frame do Widget:
         self.renderWidget()
@@ -40,7 +43,7 @@ class App:
         frameObjetos = Frame(menuDeFuncoes)
         frameObjetos.pack()
         labelObjetos = Label(frameObjetos, text="Objetos")
-        labelObjetos.pack()  
+        labelObjetos.pack()
         self.listObjects = Listbox(frameObjetos, width=40, selectmode=SINGLE)
         self.listObjects.pack()
         frameRemoveAdd = Frame(frameObjetos)
@@ -110,9 +113,21 @@ class App:
         self.log = Listbox(frameLog, height=5, width=106)
         self.log.pack(fill=X)
 
+
     def renderObjetcs(self):
         # deletando o que tiver desenhado no canvas:
         self.canvas.delete("all")
+
+        # move o mundo de acordo com o ponto de vista da window e clippa os objetos
+        for i in self.displayFile:
+            i.windowCoordinates = i.worldCoordinates * self.windowTransform
+            renderingCoordinates = []
+            for row in i.windowCoordinates.rowspace():
+                line = Opr.liangBarskyClip(self.window[2,0], self.window[2,1], self.window[0,0], self.window[0,1], row)
+                if line is not None:
+                    renderingCoordinates.append(line)
+            i.windowCoordinates = Matrix(renderingCoordinates)
+
         # inicio transformada de ViewPort:
         self.objetosTransformados = []
         # limites ViewPort:
@@ -125,14 +140,13 @@ class App:
         Ywmin = 0 + self.windowTransferY
         Xwmax = self.canvas.winfo_width() + self.windowTransferX
         Ywmax = self.canvas.winfo_height() + self.windowTransferY
+
+        tvpx = lambda x: Opr.transformViewPortX(x, Xwmin, Xwmax, Xvpmax, Xvpmin)
+        tvpy = lambda y: Opr.transformViewPortY(y, Ywmin, Ywmax, Yvpmax, Yvpmin)
         for i in self.displayFile:
-            listCoordinatesTransformed = []
-            for coords in i.coordinates:
-                Xvp = Opr.transformViewPortX(coords.x, Xwmin, Xwmax, Xvpmax, Xvpmin)
-                Yvp = Opr.transformViewPortY(coords.y, Ywmin, Ywmax, Yvpmax, Yvpmin)
-                listCoordinatesTransformed.append(Coordinates(Xvp, Yvp))
-            objectTransformed = Objeto(i.name, listCoordinatesTransformed, i.tipo, i.quantidade)
-            self.objetosTransformados.append(objectTransformed)
+            i.windowCoordinates[:,0].applyfunc(tvpx)
+            i.windowCoordinates[:,1].applyfunc(tvpy)
+            self.objetosTransformados.append(i)
         # fim transformada de ViewPort
         # inicio desenho no canvas:
         for i in self.objetosTransformados:
@@ -187,7 +201,6 @@ class App:
             self.log.insert(0, obj.name+" movido na direcao "+direction)
         except:
             self.log.insert(0, "Selecione um objeto primeiro.")
-
 
     def rotateObject(self, direction):
         valorDeRotacao = pi/3
