@@ -6,6 +6,7 @@ from math import sin, cos, pi, ceil
 
 from Objects import Coordinates, Objeto
 import Objects as Opr
+from LiangBarsky import *
 
 
 class App:
@@ -16,17 +17,19 @@ class App:
         self.root.minsize(1200, 800)
         self.root.maxsize(1200, 800)
 
-        # Configs iniciais:
-        window = Matrix.zeros(4, 3)
-        window[0, 0:2] = Matrix([self.canvas.winfo_width(), self.canvas.winfo_height(), 1])
-        window[1, 0:2] = Matrix([self.canvas.winfo_width(), 0, 1])
-        window[2, 0:2] = Matrix([0, 0, 1])
-        window[3, 0:2] = Matrix([0, self.canvas.winfo_height(), 1])
-        self.windowTransform = Matrix.eye(3)
-        self.windowRotation = 0
-
         # render frame do Widget:
         self.renderWidget()
+
+        # Configs iniciais:
+        self.window = Matrix.zeros(4, 3)
+        self.window[0, 0:3] = Matrix([[self.canvas.winfo_width(), self.canvas.winfo_height(), 1]])
+        self.window[1, 0:3] = Matrix([[self.canvas.winfo_width(), 0, 1]])
+        self.window[2, 0:3] = Matrix([[0, 0, 1]])
+        self.window[3, 0:3] = Matrix([[0, self.canvas.winfo_height(), 1]])
+        self.windowTransform = Matrix.eye(3)
+        self.windowRotation = 0
+        self.vUpVector = Opr.viewUpVector(self.windowRotation)
+        self.vRightVector = Opr.viewRightVector(self.windowRotation)
 
         # Lista de objetos:
         self.displayFile = []
@@ -64,6 +67,8 @@ class App:
         Button(frameDirecoes, text="→", command=lambda: self.moveWindow("e")).grid(row=1, column=2)
         Button(frameZoom, text="+", command=lambda: self.zoomWindow("+")).grid(row=0, column=0)
         Button(frameZoom, text="-", command=lambda: self.zoomWindow("-")).grid(row=1, column=0)
+        Button(frameDirecoes, text="↺", command=lambda: self.rotateWindow("l")).grid(row=2, column=0)
+        Button(frameDirecoes, text="↻", command=lambda: self.rotateWindow("r")).grid(row=2, column=2)
 
         # frame de Transformacao de Objetos
         self.opcaoCentroDeRotacao = StringVar()
@@ -113,73 +118,104 @@ class App:
         self.log = Listbox(frameLog, height=5, width=106)
         self.log.pack(fill=X)
 
+        self.root.update_idletasks()
+        print("Canvas w: " + str(self.canvas.winfo_width()) + ", and h: " + str(self.canvas.winfo_height()))
 
     def renderObjetcs(self):
         # deletando o que tiver desenhado no canvas:
         self.canvas.delete("all")
 
         # move o mundo de acordo com o ponto de vista da window e clippa os objetos
-        for i in self.displayFile:
-            i.windowCoordinates = i.worldCoordinates * self.windowTransform
+        self.window *= self.windowTransform
+        normalize = Opr.objectNormalizationMatrix(self.window, self.windowRotation)
+        normalizedWindow = self.window * normalize
+        clpWndw = Matrix([0.875 * normalizedWindow[2, 0:2], 0.875 * normalizedWindow[0, 0:2]])
+
+        for o in self.displayFile:
+            o.windowCoordinates = o.worldCoordinates * normalize
             renderingCoordinates = []
-            for row in i.windowCoordinates.rowspace():
-                line = Opr.liangBarskyClip(self.window[2,0], self.window[2,1], self.window[0,0], self.window[0,1], row)
-                if line is not None:
-                    renderingCoordinates.append(line)
-            i.windowCoordinates = Matrix(renderingCoordinates)
+            line = []
+            pointsNum = len(o.windowCoordinates[:, 0])
+            for i in range(pointsNum):
+                point = o.windowCoordinates.row(i)
+                line.append(point)
+                if len(line) == 2:
+                    cleanLine = Matrix(line)[0:2, 0:2]
+                    clipped = clipLine(clpWndw, cleanLine)
+                    print("Clipped: " + str(clipped))
+                    if clipped is not None:
+                        renderingCoordinates.append(clipped)
+                    line.pop(0)
+            lastLine = Matrix([o.windowCoordinates[pointsNum - 1, 0:2], o.windowCoordinates[0, 0:2]])
+            lastLineClipped = cleanLine(clpWndw, lastLine)
+            if lastLineClipped is not None:
+                renderingCoordinates.append(lastLineClipped)
+            print("Rendering coordinates: " + str(renderingCoordinates))
+            o.windowCoordinates = Matrix(renderingCoordinates)
+            print(" * in Matrix form: " + str(o.windowCoordinates))
 
         # inicio transformada de ViewPort:
         self.objetosTransformados = []
         # limites ViewPort:
-        Xvpmin = 0 - self.windowZoomX
-        Yvpmin = 0 - self.windowZoomY
-        Xvpmax = self.canvas.winfo_width() + self.windowZoomX
-        Yvpmax = self.canvas.winfo_height() + self.windowZoomY
+        Xvpmin = 0
+        Yvpmin = 0
+        Xvpmax = self.canvas.winfo_width()
+        Yvpmax = self.canvas.winfo_height()
         # Limites da Window:
-        Xwmin = 0 + self.windowTransferX
-        Ywmin = 0 + self.windowTransferY
-        Xwmax = self.canvas.winfo_width() + self.windowTransferX
-        Ywmax = self.canvas.winfo_height() + self.windowTransferY
+        Xwmin = -1
+        Ywmin = -1
+        Xwmax = 1
+        Ywmax = 1
 
         tvpx = lambda x: Opr.transformViewPortX(x, Xwmin, Xwmax, Xvpmax, Xvpmin)
         tvpy = lambda y: Opr.transformViewPortY(y, Ywmin, Ywmax, Yvpmax, Yvpmin)
-        for i in self.displayFile:
-            i.windowCoordinates[:,0].applyfunc(tvpx)
-            i.windowCoordinates[:,1].applyfunc(tvpy)
-            self.objetosTransformados.append(i)
+        for o in self.displayFile:
+            for i in range(len(o.windowCoordinates[:, 0])):
+                o.windowCoordinates[i, 0] = tvpx(o.windowCoordinates[i, 0])
+                o.windowCoordinates[i, 1] = tvpy(o.windowCoordinates[i, 1])
+            print(o.windowCoordinates)
         # fim transformada de ViewPort
         # inicio desenho no canvas:
-        for i in self.objetosTransformados:
-            if i.tipo == 'Reta' or i.tipo == 'Wireframe':
+        for o in self.displayFile:
+            if o.tipo == 'Reta' or o.tipo == 'Wireframe':
                 coords = []
-                for coordXY in i.coordinates:
-                    coords += [coordXY.x, coordXY.y] 
+                for i in range(len(o.windowCoordinates[:,0])):
+                    row = o.windowCoordinates[i]
+                    coords += [row[0], row[1]]
                 # precisa incluir a primeira coordenada de novo pra que seja feita a linha tbm da ultima coordenada com a primeira:
-                coords += [i.coordinates[0].x, i.coordinates[0].y]
+                coords += [o.windowCoordinates[0, 0], o.windowCoordinates[0, 1]]
                 self.canvas.create_line(coords)
             else:
-                self.canvas.create_oval(i.coordinates[0].x - 0.5, i.coordinates[0].y - 0.5, i.coordinates[0].x + 0.5, i.coordinates[0].y + 0.5)
+                x = o.windowCoordinates[0, 0]
+                y = o.windowCoordinates[0, 1]
+                self.canvas.create_oval(x - 0.5, y - 0.5, x + 0.5, y + 0.5)
         # fim desenho no canvas
 
     def zoomWindow(self, tipo):
-        operador = +1 if tipo == "+" else -1
-        self.windowZoomX += operador * self.canvas.winfo_width() * 0.05
-        self.windowZoomY += operador * self.canvas.winfo_height() * 0.05
+        operador = 1.25 if tipo == "+" else 1 / 1.25
+        self.windowTransform *= Opr.scaleMatrix(operador, Opr.objectCenter(self.window))
         self.log.insert(0, "zoom "+tipo+" na Window")
         self.renderObjetcs()
 
     def moveWindow(self, direction):
-        valorDeTranslacao = 10
+        tValue = 20
         if direction == "n":
-            self.windowTransferY += valorDeTranslacao
+            self.windowTransform *= Opr.translateMatrix(tValue * self.vUpVector)
         elif direction == "w":
-            self.windowTransferX -= valorDeTranslacao
+            self.windowTransform *= Opr.translateMatrix(-tValue * self.vRightVector)
         elif direction == "s":
-            self.windowTransferY -= valorDeTranslacao
+            self.windowTransform *= Opr.translateMatrix(-tValue * self.vUpVector)
         elif direction == "e":
-            self.windowTransferX += valorDeTranslacao
+            self.windowTransform *= Opr.translateMatrix(* tValue * self.vRightVector)
         self.renderObjetcs()
         self.log.insert(0, "Window movida na direção "+direction)
+
+    def rotateWindow(self, direction):
+        angle = pi / 9 if direction == "l" else -pi / 9
+        self.windowTransform *= Opr.rotateMatrix(angle, Opr.objectCenter(self.window))
+        self.windowRotation += angle
+        self.vUpVector = Opr.viewUpVector(self.windowRotation)
+        self.vRightVector = Opr.viewRightVector(self.windowRotation)
 
     def moveObject(self, direction):
         valorDeTranslacao = 10
@@ -358,7 +394,7 @@ class App:
             self.log.insert(0, "Ponto")
             x = self.x1.get()
             y = self.y1.get()
-            self.objectCoordinates.append(Coordinates(x, y))
+            self.objectCoordinates.append([x, y, 1])
             quantidade = 1
         elif (tipo == "Reta"):
             self.log.insert(0, "Reta")
@@ -366,16 +402,16 @@ class App:
             y1 = self.y1.get()
             x2 = self.x2.get()
             y2 = self.y2.get()
-            self.objectCoordinates.append(Coordinates(x1, y1))
-            self.objectCoordinates.append(Coordinates(x2, y2))
+            self.objectCoordinates.append([x1, y1, 1])
+            self.objectCoordinates.append([x2, y2, 1])
             quantidade = 2
         elif (tipo == "Wireframe"):
             self.log.insert(0, "Wireframe")
             quantidade = self.vertices.get()
             for i in range(quantidade):
-                self.objectCoordinates.append(Coordinates(self.wireFrameX[i].get(), self.wireFrameY[i].get()))
+                self.objectCoordinates.append([self.wireFrameX[i].get(), self.wireFrameY[i].get(), 1])
         
-        objeto = Objeto(name, self.objectCoordinates, tipo, quantidade)
+        objeto = Objeto(name, Matrix(self.objectCoordinates), tipo, quantidade)
         indiceItensRegistrados = len(self.displayFile)
         self.listObjects.insert(END, str(indiceItensRegistrados)+") " + objeto.name + "("+objeto.tipo+")")
         self.log.insert(0, "Objeto " + objeto.name + " incluido")
