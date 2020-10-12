@@ -1,10 +1,6 @@
 # coding: utf-8
 from tkinter import *
 from tkinter import ttk
-<<<<<<< HEAD
-from sympy import Matrix
-=======
->>>>>>> a73a19ee42c2fa5d57527dcbcb6fe1f286f9de86
 import numpy as np
 from math import sin, cos, pi, ceil
 from collections import defaultdict
@@ -151,17 +147,11 @@ class App:
         self.canvas.delete("all")
 
         # move o mundo de acordo com o ponto de vista da window e clippa os objetos
-<<<<<<< HEAD
-        # self.window *= self.windowTransform
-        # normalize = Opr.objectNormalizationMatrix(self.window, self.windowRotation)
-        # normalizedWindow = self.window * normalize
-=======
         self.window = self.window.dot(self.windowTransform)
         normalize = Opr.objectNormalizationMatrix(self.window, self.windowRotation)
 
-        for o in self.displayFile:
-            o.windowCoordinates = o.worldCoordinates.dot(normalize)
->>>>>>> a73a19ee42c2fa5d57527dcbcb6fe1f286f9de86
+        # for o in self.displayFile:
+        #     o.windowCoordinates = o.worldCoordinates.dot(normalize)
 
         # inicio transformada de ViewPort:
         # self.objetosTransformados = []
@@ -188,14 +178,8 @@ class App:
         for o in self.displayFile.items():
             if isinstance(o[1], reta.Reta) or isinstance(o[1], wireframe.Wireframe):
                 coords = []
-<<<<<<< HEAD
                 for i in range(len(o[1].n_coords)):
                     coords += [o[1].coords[i][0], o[1].coords[i][1]]
-=======
-                for i in range(len(o.windowCoordinates[:, 0])):
-                    row = o.windowCoordinates[i, :]
-                    coords += [row[0], row[1]]
->>>>>>> a73a19ee42c2fa5d57527dcbcb6fe1f286f9de86
                 # precisa incluir a primeira coordenada de novo pra que seja feita a linha tbm da ultima coordenada com a primeira:
                 coords += [o[1].coords[0, 0], o[1].coords[0, 1]]
                 self.canvas.create_line(coords)
@@ -405,19 +389,11 @@ class App:
             self.displayFile[name] = reta.Reta(ponto.Ponto(x1, y1, z1), ponto.Ponto(x2, y2, z2))
         elif (tipo == "Wireframe"):
             self.log.insert(0, "Wireframe")
-<<<<<<< HEAD
             self.listaPontos = []
             for i in range(self.vertices.get()):
                 self.listaPontos.append(ponto.Ponto(self.wireFrameX[i].get(), self.wireFrameY[i].get(), self.wireFrameZ[i].get()))
             self.displayFile[name] = wireframe.Wireframe(self.listaPontos)
 
-=======
-            quantidade = self.vertices.get()
-            for i in range(quantidade):
-                self.objectCoordinates.append([self.wireFrameX[i].get(), self.wireFrameY[i].get(), 1])
-        
-        objeto = Objeto(name, np.array(self.objectCoordinates), tipo, quantidade)
->>>>>>> a73a19ee42c2fa5d57527dcbcb6fe1f286f9de86
         indiceItensRegistrados = len(self.displayFile)
         self.listObjects.insert(END, str(indiceItensRegistrados)+") " + name + "("+tipo+")")
         self.log.insert(0, "Objeto " + name + " incluido")
