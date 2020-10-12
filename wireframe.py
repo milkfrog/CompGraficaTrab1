@@ -2,20 +2,18 @@ import numpy as np
 
 from itertools import cycle
 
-from drawable import Drawable
+import ponto
+import reta
 
-import dot
-import line
-
-class Wireframe(Drawable):
+class Wireframe():
     def __init__(self, dot_list, color_list=cycle([(0,0,0)]),w_size=(500,500), offset=(10,10)):
         self.scale = np.array([[w_size[0], 0, 0, 0],
                                [0, w_size[1], 0, 0],
                                [0, 0, w_size[1], 0],
                                [0, 0, 0, 1]
                               ])
-        coords = np.array(list(map(dot.Dot.coordenates,dot_list)))
-        self.n_coords = coords@np.array([[1/w_size[0], 0, 0, 0],
+        self.coords = np.array(list(map(ponto.Ponto.coordenates,dot_list)))
+        self.n_coords = self.coords@np.array([[1/w_size[0], 0, 0, 0],
                                               [0, 1/w_size[1], 0, 0],
                                               [0, 0, 1/w_size[1], 0],
                                               [0, 0, 0, 1]

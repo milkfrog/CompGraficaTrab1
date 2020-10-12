@@ -2,17 +2,15 @@ import numpy as np
 
 from math import pi
 
-from drawable import Drawable
-
-class Dot(Drawable):
-    def __init__(self, x, y, z, color=(0,0,0), w_size=(500,500), offset=(10,10)):
+class Ponto():
+    def __init__(self, x, y, z=1, color=(0,0,0), w_size=(500,500), offset=(10,10)):
         self.scale = np.array([[w_size[0], 0, 0, 0],
                                [0, w_size[1], 0, 0],
                                [0, 0, w_size[1], 0],
                                [0, 0, 0, 1],
                               ])
-        coords = np.array([float(x), float(y), float(z), 1])
-        self.n_coords = coords@np.array([[1/w_size[0], 0, 0,0],
+        self.coords = np.array([float(x), float(y), float(z), 1])
+        self.n_coords = self.coords@np.array([[1/w_size[0], 0, 0,0],
                                               [0, 1/w_size[1], 0,0],
                                               [0, 0, 1/w_size[1],0],
                                               [0, 0, 0, 1],

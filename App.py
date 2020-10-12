@@ -2,11 +2,15 @@
 from tkinter import *
 from tkinter import ttk
 from sympy import Matrix
+import numpy as np
 from math import sin, cos, pi, ceil
+from collections import defaultdict
 
-from Objects import Coordinates, Objeto
 import Objects as Opr
-from LiangBarsky import *
+
+import ponto
+import reta
+import wireframe
 
 
 class App:
@@ -30,9 +34,28 @@ class App:
         self.windowRotation = 0
         self.vUpVector = Opr.viewUpVector(self.windowRotation)
         self.vRightVector = Opr.viewRightVector(self.windowRotation)
-
-        # Lista de objetos:
-        self.displayFile = []
+        self.dots = defaultdict(lambda:None)
+        self.lines = defaultdict(lambda:None)
+        self.wireframes = defaultdict(lambda:None)
+        self.displayFile = defaultdict(lambda:None)
+        self.surface = None
+        self.selected_obj = None
+        self.wireframe_aux = []
+        self.bspline_aux = []
+        self.wireframe_rgb = []
+        self.matrix = np.identity(4)
+        self.matrix_tr = np.array([[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]])
+        self.matrix_rot = np.identity(4)
+        self.step = np.eye(4,4)
+        self.rotate_point = True
+        self.cx, self.cy, self.cz = 0,0,0
+        self.dx, self.dy, self.dz = 0,0,0
+        self.wcx, self.wcy, self.wcz = 0,0,0
+        self.ang = 0
+        self.single_obj = False
+        self.w_size = 500
+        self.s = np.array([[1/500,0,0,0],[0,1/500,0,0],[0,0,1/500,0],[0,0,0,1]])
+        self.threshold = ((10,10),(10,510),(510,510),(510,10))
 
         # Inicializa:
         self.root.mainloop()
@@ -126,68 +149,43 @@ class App:
         self.canvas.delete("all")
 
         # move o mundo de acordo com o ponto de vista da window e clippa os objetos
-        self.window *= self.windowTransform
-        normalize = Opr.objectNormalizationMatrix(self.window, self.windowRotation)
-        normalizedWindow = self.window * normalize
-        clpWndw = Matrix([0.875 * normalizedWindow[2, 0:2], 0.875 * normalizedWindow[0, 0:2]])
-
-        for o in self.displayFile:
-            o.windowCoordinates = o.worldCoordinates * normalize
-            renderingCoordinates = []
-            line = []
-            pointsNum = len(o.windowCoordinates[:, 0])
-            for i in range(pointsNum):
-                point = o.windowCoordinates.row(i)
-                line.append(point)
-                if len(line) == 2:
-                    cleanLine = Matrix(line)[0:2, 0:2]
-                    clipped = clipLine(clpWndw, cleanLine)
-                    print("Clipped: " + str(clipped))
-                    if clipped is not None:
-                        renderingCoordinates.append(clipped)
-                    line.pop(0)
-            lastLine = Matrix([o.windowCoordinates[pointsNum - 1, 0:2], o.windowCoordinates[0, 0:2]])
-            lastLineClipped = cleanLine(clpWndw, lastLine)
-            if lastLineClipped is not None:
-                renderingCoordinates.append(lastLineClipped)
-            print("Rendering coordinates: " + str(renderingCoordinates))
-            o.windowCoordinates = Matrix(renderingCoordinates)
-            print(" * in Matrix form: " + str(o.windowCoordinates))
+        # self.window *= self.windowTransform
+        # normalize = Opr.objectNormalizationMatrix(self.window, self.windowRotation)
+        # normalizedWindow = self.window * normalize
 
         # inicio transformada de ViewPort:
-        self.objetosTransformados = []
+        # self.objetosTransformados = []
         # limites ViewPort:
-        Xvpmin = 0
-        Yvpmin = 0
-        Xvpmax = self.canvas.winfo_width()
-        Yvpmax = self.canvas.winfo_height()
-        # Limites da Window:
-        Xwmin = -1
-        Ywmin = -1
-        Xwmax = 1
-        Ywmax = 1
+        # Xvpmin = 0
+        # Yvpmin = 0
+        # Xvpmax = self.canvas.winfo_width()
+        # Yvpmax = self.canvas.winfo_height()
+        # # Limites da Window:
+        # Xwmin = -1
+        # Ywmin = -1
+        # Xwmax = 1
+        # Ywmax = 1
 
-        tvpx = lambda x: Opr.transformViewPortX(x, Xwmin, Xwmax, Xvpmax, Xvpmin)
-        tvpy = lambda y: Opr.transformViewPortY(y, Ywmin, Ywmax, Yvpmax, Yvpmin)
-        for o in self.displayFile:
-            for i in range(len(o.windowCoordinates[:, 0])):
-                o.windowCoordinates[i, 0] = tvpx(o.windowCoordinates[i, 0])
-                o.windowCoordinates[i, 1] = tvpy(o.windowCoordinates[i, 1])
-            print(o.windowCoordinates)
+        # tvpx = lambda x: Opr.transformViewPortX(x, Xwmin, Xwmax, Xvpmax, Xvpmin)
+        # tvpy = lambda y: Opr.transformViewPortY(y, Ywmin, Ywmax, Yvpmax, Yvpmin)
+        # for o in self.displayFile:
+        #     for i in range(len(o.windowCoordinates[:, 0])):
+        #         o.windowCoordinates[i, 0] = tvpx(o.windowCoordinates[i, 0])
+        #         o.windowCoordinates[i, 1] = tvpy(o.windowCoordinates[i, 1])
+        #     print(o.windowCoordinates)
         # fim transformada de ViewPort
         # inicio desenho no canvas:
-        for o in self.displayFile:
-            if o.tipo == 'Reta' or o.tipo == 'Wireframe':
+        for o in self.displayFile.items():
+            if isinstance(o[1], reta.Reta) or isinstance(o[1], wireframe.Wireframe):
                 coords = []
-                for i in range(len(o.windowCoordinates[:,0])):
-                    row = o.windowCoordinates[i]
-                    coords += [row[0], row[1]]
+                for i in range(len(o[1].n_coords)):
+                    coords += [o[1].coords[i][0], o[1].coords[i][1]]
                 # precisa incluir a primeira coordenada de novo pra que seja feita a linha tbm da ultima coordenada com a primeira:
-                coords += [o.windowCoordinates[0, 0], o.windowCoordinates[0, 1]]
+                coords += [o[1].coords[0, 0], o[1].coords[0, 1]]
                 self.canvas.create_line(coords)
             else:
-                x = o.windowCoordinates[0, 0]
-                y = o.windowCoordinates[0, 1]
+                x = o[1].coords[0]
+                y = o[1].coords[1]
                 self.canvas.create_oval(x - 0.5, y - 0.5, x + 0.5, y + 0.5)
         # fim desenho no canvas
 
@@ -323,10 +321,13 @@ class App:
         framePonto.pack(fill=BOTH)
         self.x1 = DoubleVar()
         self.y1 = DoubleVar()
+        self.z1 = DoubleVar(value=1)
         Label(framePonto, text='X = ').grid(row=0, column=0)
         Entry(framePonto, textvariable=self.x1, width=13).grid(row=0, column=1)
         Label(framePonto, text='Y = ').grid(row=0, column=2)
         Entry(framePonto, textvariable=self.y1, width=13).grid(row=0, column=3)
+        Label(framePonto, text='Z = ').grid(row=0, column=4)
+        Entry(framePonto, textvariable=self.z1, width=13).grid(row=0, column=5)
         Button(framePonto, text="Incluir Ponto", bg="lightgreen", command=lambda: self.addCoordinates("Ponto")).grid(row=1, column=0, columnspan=10, sticky=W+E+N+S)
         
         # Reta:
@@ -334,14 +335,20 @@ class App:
         frameReta.pack(fill=X)
         self.x2 = DoubleVar()
         self.y2 = DoubleVar()
+        self.z2 = DoubleVar(value=1)
         Label(frameReta, text='X1 = ').grid(row=0, column=0)
         Entry(frameReta, textvariable=self.x1, width=13).grid(row=0, column=1)
         Label(frameReta, text='Y1 = ').grid(row=0, column=2)
         Entry(frameReta, textvariable=self.y1, width=13).grid(row=0, column=3)
+        Label(frameReta, text='Z1 = ').grid(row=0, column=4)
+        Entry(frameReta, textvariable=self.z1, width=13).grid(row=0, column=5)
         Label(frameReta, text='X2 = ').grid(row=1, column=0)
         Entry(frameReta, textvariable=self.x2, width=13).grid(row=1, column=1)
         Label(frameReta, text='Y2 = ').grid(row=1, column=2)
         Entry(frameReta, textvariable=self.y2, width=13).grid(row=1, column=3)
+        Label(frameReta, text='Z2 = ').grid(row=1, column=4)
+        Entry(frameReta, textvariable=self.z2, width=13).grid(row=1, column=5)
+
         Button(frameReta, text="Incluir Reta", bg="lightgreen", command=lambda: self.addCoordinates("Reta")).grid(row=2, column=0, columnspan=10, sticky=W+E+N+S)
         
         # Wireframe:
@@ -376,46 +383,48 @@ class App:
                 self.frameCoords.grid(row=1, column=0)
             self.wireFrameX = []
             self.wireFrameY = []
+            self.wireFrameZ = []
             for i in range(self.vertices.get()):
                 self.wireFrameX.append(DoubleVar())
                 self.wireFrameY.append(DoubleVar())
+                self.wireFrameZ.append(DoubleVar(value=1))
                 Label(self.frameCoords, text="X"+str(i+1)+" = ").grid(row=i, column=0)
                 Entry(self.frameCoords, textvariable=self.wireFrameX[i], width=10).grid(row=i, column=1)
                 Label(self.frameCoords, text="Y"+str(i+1)+" = ").grid(row=i, column=2)
                 Entry(self.frameCoords, textvariable=self.wireFrameY[i], width=10).grid(row=i, column=3)
+                Label(self.frameCoords, text="Z"+str(i+1)+" = ").grid(row=i, column=4)
+                Entry(self.frameCoords, textvariable=self.wireFrameZ[i], width=10).grid(row=i, column=5)
             Button(self.frameCoords, text="Incluir Wireframe", bg="lightgreen", command=lambda: self.addCoordinates("Wireframe")).grid(row=(self.vertices.get()), column=0)
         except:
             print("exception do updateWireframeAdd trollzinho")
 
     def addCoordinates(self, tipo):
-        #  TODO: refatorar que depois q fiz o wireframe da pra deixar bem melhor
         name = self.objectName.get()
         if (tipo == "Ponto"):
             self.log.insert(0, "Ponto")
             x = self.x1.get()
             y = self.y1.get()
-            self.objectCoordinates.append([x, y, 1])
-            quantidade = 1
+            z = self.z1.get()
+            self.displayFile[name] = ponto.Ponto(x, y, z)
         elif (tipo == "Reta"):
             self.log.insert(0, "Reta")
             x1 = self.x1.get()
             y1 = self.y1.get()
+            z1 = self.z1.get()
             x2 = self.x2.get()
             y2 = self.y2.get()
-            self.objectCoordinates.append([x1, y1, 1])
-            self.objectCoordinates.append([x2, y2, 1])
-            quantidade = 2
+            z2 = self.z2.get()
+            self.displayFile[name] = reta.Reta(ponto.Ponto(x1, y1, z1), ponto.Ponto(x2, y2, z2))
         elif (tipo == "Wireframe"):
             self.log.insert(0, "Wireframe")
-            quantidade = self.vertices.get()
-            for i in range(quantidade):
-                self.objectCoordinates.append([self.wireFrameX[i].get(), self.wireFrameY[i].get(), 1])
-        
-        objeto = Objeto(name, Matrix(self.objectCoordinates), tipo, quantidade)
+            self.listaPontos = []
+            for i in range(self.vertices.get()):
+                self.listaPontos.append(ponto.Ponto(self.wireFrameX[i].get(), self.wireFrameY[i].get(), self.wireFrameZ[i].get()))
+            self.displayFile[name] = wireframe.Wireframe(self.listaPontos)
+
         indiceItensRegistrados = len(self.displayFile)
-        self.listObjects.insert(END, str(indiceItensRegistrados)+") " + objeto.name + "("+objeto.tipo+")")
-        self.log.insert(0, "Objeto " + objeto.name + " incluido")
-        self.displayFile.append(objeto)
+        self.listObjects.insert(END, str(indiceItensRegistrados)+") " + name + "("+tipo+")")
+        self.log.insert(0, "Objeto " + name + " incluido")
         
         self.renderObjetcs()
         self.newWindow.destroy()

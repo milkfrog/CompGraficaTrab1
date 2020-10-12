@@ -1,19 +1,17 @@
 import numpy as np
 
-from drawable import Drawable
+import ponto
 
-import dot
-
-class Line(Drawable):
+class Reta():
     def __init__(self, i0, i1, color=(0,0,0),w_size=(500,500), offset=(10,10)):
         self.scale = np.array([[w_size[0], 0, 0, 0],
                                [0, w_size[1], 0, 0],
                                [0, 0, w_size[1], 0],
                                [0, 0, 0, 1]
                               ])
-        coords = np.array([i0.coordenates(),
+        self.coords = np.array([i0.coordenates(),
                            i1.coordenates()])
-        self.n_coords = coords@np.array([[1/w_size[0], 0, 0, 0],
+        self.n_coords = self.coords@np.array([[1/w_size[0], 0, 0, 0],
                                               [0, 1/w_size[1], 0, 0],
                                               [0, 0, 1/w_size[1], 0],
                                               [0, 0, 0, 1]
