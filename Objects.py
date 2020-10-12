@@ -1,4 +1,4 @@
-from sympy import Matrix, symbols, summation
+import numpy as np
 from math import sin, cos
 
 # A point is simply an array [x,y]
@@ -17,7 +17,7 @@ class Coordinates:
 
 
 class Objeto:
-    def __init__(self, name, worldCoordinates: Matrix, tipo, quantidade):
+    def __init__(self, name, worldCoordinates: np.array, tipo, quantidade):
         self.name = name
         self.worldCoordinates = worldCoordinates
         self.windowCoordinates = worldCoordinates
@@ -62,50 +62,50 @@ class Objeto:
     #         stringCoordenadas += 
     #     return self.name + "(" + self.tipo + ") coordenadas = " + 
 
-def objectCenter(obj: Matrix):
-    xColumns = obj[:,0]
-    yColumns = obj[:,1]
-    n = len(obj[:,0])
+def objectCenter(obj: np.array):
+    xColumns = obj[:, 0]
+    yColumns = obj[:, 1]
+    n = len(obj[:, 0])
     x = sum(xColumns[i] for i in range(len(xColumns))) / n
     y = sum(yColumns[i] for i in range(len(yColumns))) / n
-    return Matrix([[x, y]])
+    return np.array([x, y])
 
 
 def viewUpVector(angle):
-    return Matrix([[cos(angle), sin(angle)]])
+    return np.array([cos(angle), sin(angle)])
 
 
 def viewRightVector(angle):
-    return Matrix([[sin(angle), -cos(angle)]])
+    return np.array([sin(angle), -cos(angle)])
 
 
 def translateMatrix(d):
-    tMatrix = Matrix.eye(3)
-    try:
-        tMatrix[2, 0:2] = d
-    except:
-        tMatrix[2, 0:2] = d.T
+    tMatrix = np.array([[1, 0, 0],
+                        [0, 1, 0],
+                        [d[0], d[1], 1]])
     return tMatrix
 
 
-def rotateMatrix(theta, center):
-    rMatrix = Matrix.eye(3)
-    rMatrix[0:2, 0:2] = Matrix([[cos(-theta), -sin(-theta)], [sin(-theta), cos(-theta)]])
-    return translateMatrix(-Matrix(center)) * rMatrix * translateMatrix(Matrix(center))
+def rotateMatrix(theta, center: np.array):
+    rMatrix = np.array([[cos(-theta), -sin(-theta), 0],
+                        [sin(-theta),  cos(-theta), 0],
+                        [0, 0, 1]])
+    return translateMatrix(-1 * center).dot(rMatrix).dot(translateMatrix(center))
 
 
-def scaleMatrix(s, center):
-    sMatrix = Matrix.eye(3)
-    sMatrix[0:2, 0:2] = Matrix([[s[0], 0], [0, s[1]]])
-    return translateMatrix(-Matrix(center)) * sMatrix * translateMatrix(Matrix(center))
+def scaleMatrix(s, center: np.array):
+    sMatrix = np.array([[s[0], 0, 0],
+                        [0, s[1], 0],
+                        [0, 0, 1]])
+    return translateMatrix(-1 * center).dot(sMatrix).dot(translateMatrix(center))
 
 
-def objectNormalizationMatrix(window: Matrix, windowRotation):
-    tMatrix = translateMatrix(-objectCenter(window))
-    rMatrix = rotateMatrix(-windowRotation, [0, 0])
-    centeredWindow = window * tMatrix * rMatrix
-    sMatrix = scaleMatrix([1 / centeredWindow[0, 0], 1 / centeredWindow[0, 1], 1], [0, 0])
-    return tMatrix * rMatrix * sMatrix
+def objectNormalizationMatrix(window: np.array, windowRotation):
+    tMatrix = translateMatrix(-1 * objectCenter(window))
+    rMatrix = rotateMatrix(-windowRotation, np.array([0, 0]))
+    centeredWindow = window.dot(tMatrix).dot(rMatrix)
+    sMatrix = scaleMatrix([1 / centeredWindow[0, 0], 1 / centeredWindow[0, 1]], np.array([0, 0]))
+    return tMatrix.dot(rMatrix).dot(sMatrix)
 
 
 def transformViewPortX(Xw, Xwmin, Xwmax, Xvpmax, Xvpmin):
@@ -114,58 +114,3 @@ def transformViewPortX(Xw, Xwmin, Xwmax, Xvpmax, Xvpmin):
 
 def transformViewPortY(Yw, Ywmin, Ywmax, Yvpmax, Yvpmin):
     return (1 - (Yw - Ywmin)/(Ywmax - Ywmin))*(Yvpmax - Yvpmin)
-
-
-def liangBarskyClip(clpWndw, line):
-    # A clpWndw deve ser 2 pontos (x,y) que formam a diagonal ascendente ( assim: / ) da window.
-    # o primeiro ponto tem os valores x,y minimos e o segundo os maximos.
-    # A line deve ser 2 pontos (x,y).
-
-    # Definicao de parametros
-    p = [-(line[1, 0] - line[0, 0]),
-         line[0, 0] - line[1, 0],
-         -(line[1, 1] - line[0, 1]),
-         line[0, 1] - line[1, 1]]
-
-    q = [line[0, 0] - clpWndw[0, 0],
-         clpWndw[1, 0] - line[0, 0],
-         line[0, 1] - clpWndw[0, 1],
-         clpWndw[1, 1] - line[0, 1]]
-
-    posArr = [0, 0, 0, 0, 0]
-    posArr[0] = 1
-    negArr = [0, 0, 0, 0, 0]
-    negArr[0] = 0
-
-    # Provavelmente existe uma maneira mais Pythonica de escrever essa verificacao.
-    if (p[0] == 0 and q[0] < 0) or (p[1] == 0 and q[1] < 0) or (p[2] == 0 and q[2] < 0) or (p[3] == 0 and q[3] < 0):
-        return None  # Linha paralela com a clipping window
-
-    if p[0] is not 0:
-        r0 = q[0] / p[0]
-        r1 = q[1] / p[1]
-        if p[0] < 0:
-            negArr[1] = r0
-            posArr[1] = r1
-        else:
-            negArr[1] = r1
-            posArr[1] = r0
-
-    if p[2] is not 0:
-        r2 = q[2] / p[2]
-        r3 = q[3] / p[3]
-        if p[2] < 0:
-            negArr[2] = r2
-            posArr[2] = r3
-        else:
-            negArr[2] = r3
-            posArr[2] = r2
-
-    rn0 = max(negArr)
-    rn1 = min(posArr)
-
-    if rn0 > rn1:
-        return None  # Linha fora da clipping window
-
-    return Matrix([[line[0, 0] + p[1] * rn0, line[0, 1] + p[3] * rn0],
-                   [line[0, 0] + p[1] * rn1, line[0, 1] + p[3] * rn1]])
