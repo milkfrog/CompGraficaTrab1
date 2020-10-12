@@ -1,7 +1,10 @@
 # coding: utf-8
 from tkinter import *
 from tkinter import ttk
+<<<<<<< HEAD
 from sympy import Matrix
+=======
+>>>>>>> a73a19ee42c2fa5d57527dcbcb6fe1f286f9de86
 import numpy as np
 from math import sin, cos, pi, ceil
 from collections import defaultdict
@@ -25,12 +28,11 @@ class App:
         self.renderWidget()
 
         # Configs iniciais:
-        self.window = Matrix.zeros(4, 3)
-        self.window[0, 0:3] = Matrix([[self.canvas.winfo_width(), self.canvas.winfo_height(), 1]])
-        self.window[1, 0:3] = Matrix([[self.canvas.winfo_width(), 0, 1]])
-        self.window[2, 0:3] = Matrix([[0, 0, 1]])
-        self.window[3, 0:3] = Matrix([[0, self.canvas.winfo_height(), 1]])
-        self.windowTransform = Matrix.eye(3)
+        self.window = np.array([[self.canvas.winfo_width(), self.canvas.winfo_height(), 1],
+                                [self.canvas.winfo_width(), 0, 1],
+                                [0, 0, 1],
+                                [0, self.canvas.winfo_height(), 1]])
+        self.windowTransform = np.eye(3)
         self.windowRotation = 0
         self.vUpVector = Opr.viewUpVector(self.windowRotation)
         self.vRightVector = Opr.viewRightVector(self.windowRotation)
@@ -149,9 +151,17 @@ class App:
         self.canvas.delete("all")
 
         # move o mundo de acordo com o ponto de vista da window e clippa os objetos
+<<<<<<< HEAD
         # self.window *= self.windowTransform
         # normalize = Opr.objectNormalizationMatrix(self.window, self.windowRotation)
         # normalizedWindow = self.window * normalize
+=======
+        self.window = self.window.dot(self.windowTransform)
+        normalize = Opr.objectNormalizationMatrix(self.window, self.windowRotation)
+
+        for o in self.displayFile:
+            o.windowCoordinates = o.worldCoordinates.dot(normalize)
+>>>>>>> a73a19ee42c2fa5d57527dcbcb6fe1f286f9de86
 
         # inicio transformada de ViewPort:
         # self.objetosTransformados = []
@@ -178,8 +188,14 @@ class App:
         for o in self.displayFile.items():
             if isinstance(o[1], reta.Reta) or isinstance(o[1], wireframe.Wireframe):
                 coords = []
+<<<<<<< HEAD
                 for i in range(len(o[1].n_coords)):
                     coords += [o[1].coords[i][0], o[1].coords[i][1]]
+=======
+                for i in range(len(o.windowCoordinates[:, 0])):
+                    row = o.windowCoordinates[i, :]
+                    coords += [row[0], row[1]]
+>>>>>>> a73a19ee42c2fa5d57527dcbcb6fe1f286f9de86
                 # precisa incluir a primeira coordenada de novo pra que seja feita a linha tbm da ultima coordenada com a primeira:
                 coords += [o[1].coords[0, 0], o[1].coords[0, 1]]
                 self.canvas.create_line(coords)
@@ -191,26 +207,26 @@ class App:
 
     def zoomWindow(self, tipo):
         operador = 1.25 if tipo == "+" else 1 / 1.25
-        self.windowTransform *= Opr.scaleMatrix(operador, Opr.objectCenter(self.window))
+        self.windowTransform = self.windowTransform.dot(Opr.scaleMatrix([operador, operador], Opr.objectCenter(self.window)))
         self.log.insert(0, "zoom "+tipo+" na Window")
         self.renderObjetcs()
 
     def moveWindow(self, direction):
         tValue = 20
         if direction == "n":
-            self.windowTransform *= Opr.translateMatrix(tValue * self.vUpVector)
+            self.windowTransform = self.windowTransform.dot(Opr.translateMatrix(tValue * self.vUpVector))
         elif direction == "w":
-            self.windowTransform *= Opr.translateMatrix(-tValue * self.vRightVector)
+            self.windowTransform = self.windowTransform.dot(Opr.translateMatrix(-tValue * self.vRightVector))
         elif direction == "s":
-            self.windowTransform *= Opr.translateMatrix(-tValue * self.vUpVector)
+            self.windowTransform = self.windowTransform.dot(Opr.translateMatrix(-tValue * self.vUpVector))
         elif direction == "e":
-            self.windowTransform *= Opr.translateMatrix(* tValue * self.vRightVector)
+            self.windowTransform = self.windowTransform.dot(Opr.translateMatrix(tValue * self.vRightVector))
         self.renderObjetcs()
         self.log.insert(0, "Window movida na direção "+direction)
 
     def rotateWindow(self, direction):
         angle = pi / 9 if direction == "l" else -pi / 9
-        self.windowTransform *= Opr.rotateMatrix(angle, Opr.objectCenter(self.window))
+        self.windowTransform = self.windowTransform.dot(Opr.rotateMatrix(angle, Opr.objectCenter(self.window)))
         self.windowRotation += angle
         self.vUpVector = Opr.viewUpVector(self.windowRotation)
         self.vRightVector = Opr.viewRightVector(self.windowRotation)
@@ -220,7 +236,7 @@ class App:
         try:
             obj = self.displayFile[self.listObjects.curselection()[0]]
             # cria matriz identidade 3x3:
-            tMatrix = Matrix.eye(3)
+            tMatrix = np.eye(3)
             if direction == "n":
                 tMatrix[2, 1] = valorDeTranslacao
             elif direction == "w":
@@ -229,61 +245,33 @@ class App:
                 tMatrix[2, 1] = -valorDeTranslacao
             elif direction == "e":
                 tMatrix[2, 0] = valorDeTranslacao
-            nobj = Opr.genericTransformation(obj, tMatrix)
-            self.displayFile[self.listObjects.curselection()[0]] = nobj
+            obj.worldCoordinates = obj.worldCoordinates.dot(tMatrix)
             self.renderObjetcs()
             self.log.insert(0, obj.name+" movido na direcao "+direction)
         except:
             self.log.insert(0, "Selecione um objeto primeiro.")
 
     def rotateObject(self, direction):
-        valorDeRotacao = pi/3
         try:
             obj = self.displayFile[self.listObjects.curselection()[0]]
             if self.opcaoCentroDeRotacao.get() == "Mundo":
-                centro = Coordinates(0, 0)
+                centro = np.array([0, 0])
             elif self.opcaoCentroDeRotacao.get() == "Objeto":
-                centro = Opr.polygonCenter(obj.coordinates)
+                centro = Opr.objectCenter(obj.worldCoordinates)
             else:
-                centro = Coordinates(float(self.centroDeRotacaoX.get()), float(self.centroDeRotacaoY.get()))
-            mMatrix = Matrix.eye(3)
-            mMatrix[2, 0] = -centro.x
-            mMatrix[2, 1] = -centro.y
-            rotacao = 1 if direction == "r" else -1
-            rMatrix = Matrix.eye(3)
-            c = cos(rotacao * valorDeRotacao)
-            s = sin(rotacao * valorDeRotacao)
-            rMatrix[0, 0] = c
-            rMatrix[0, 1] = -s
-            rMatrix[1, 1] = c
-            rMatrix[1, 0] = s
-            bMatrix = Matrix.eye(3)
-            bMatrix[2, 0] = centro.x
-            bMatrix[2, 1] = centro.y
-            tMatrix = mMatrix * rMatrix * bMatrix
-            nobj = Opr.genericTransformation(obj, tMatrix)
-            self.displayFile[self.listObjects.curselection()[0]] = nobj
+                centro = np.array([self.centroDeRotacaoX, self.centroDeRotacaoY])
+            angle = pi / 9 if direction == "l" else -pi / 9
+            obj.worldCoordinates = obj.worldCoordinates.dot(Opr.rotateMatrix(angle, centro))
             self.renderObjetcs()
-            self.log.insert(0, obj.name+" rotacionado em "+str(ceil(valorDeRotacao*(180/pi)))+" graus na direção "+("↺" if direction == "l" else "↻")+" no "+str(self.opcaoCentroDeRotacao.get()))
+            self.log.insert(0, obj.name+" rotacionado em "+str(ceil(angle*(180/pi)))+" graus na direção "+("↺" if direction == "l" else "↻")+" no "+str(self.opcaoCentroDeRotacao.get()))
         except:
             self.log.insert(0, "Selecione um objeto primeiro.")
 
     def scaleObject(self, tipo):
         obj = self.displayFile[self.listObjects.curselection()[0]]
-        centro = Opr.polygonCenter(obj.coordinates)
-        mMatrix = Matrix.eye(3)
-        mMatrix[2, 0] = -centro.x
-        mMatrix[2, 1] = -centro.y
+        centro = Opr.objectCenter(obj.coordinates)
         z = 1.5 if tipo == "+" else 0.5
-        sMatrix = Matrix.eye(3)
-        sMatrix[0, 0] = z
-        sMatrix[1, 1] = z
-        bMatrix = Matrix.eye(3)
-        bMatrix[2, 0] = centro.x
-        bMatrix[2, 1] = centro.y
-        tMatrix = mMatrix * sMatrix * bMatrix
-        nobj = Opr.genericTransformation(obj, tMatrix)
-        self.displayFile[self.listObjects.curselection()[0]] = nobj
+        obj.worldCoordinates = obj.worldCoordinates.dot(Opr.scaleMatrix([z, z], centro))
         self.renderObjetcs()
         self.log.insert(0, obj.name+(" ampliado" if tipo == "+" else " reduzido"))
     
@@ -417,11 +405,19 @@ class App:
             self.displayFile[name] = reta.Reta(ponto.Ponto(x1, y1, z1), ponto.Ponto(x2, y2, z2))
         elif (tipo == "Wireframe"):
             self.log.insert(0, "Wireframe")
+<<<<<<< HEAD
             self.listaPontos = []
             for i in range(self.vertices.get()):
                 self.listaPontos.append(ponto.Ponto(self.wireFrameX[i].get(), self.wireFrameY[i].get(), self.wireFrameZ[i].get()))
             self.displayFile[name] = wireframe.Wireframe(self.listaPontos)
 
+=======
+            quantidade = self.vertices.get()
+            for i in range(quantidade):
+                self.objectCoordinates.append([self.wireFrameX[i].get(), self.wireFrameY[i].get(), 1])
+        
+        objeto = Objeto(name, np.array(self.objectCoordinates), tipo, quantidade)
+>>>>>>> a73a19ee42c2fa5d57527dcbcb6fe1f286f9de86
         indiceItensRegistrados = len(self.displayFile)
         self.listObjects.insert(END, str(indiceItensRegistrados)+") " + name + "("+tipo+")")
         self.log.insert(0, "Objeto " + name + " incluido")
