@@ -2,42 +2,38 @@ import numpy as np
 
 from itertools import cycle
 
+import Objects as Operations
 import ponto
 import reta
 
 class Wireframe():
-    def __init__(self, dot_list, color_list=cycle([(0,0,0)]),w_size=(500,500), offset=(10,10)):
-        self.scale = np.array([[w_size[0], 0, 0, 0],
-                               [0, w_size[1], 0, 0],
-                               [0, 0, w_size[1], 0],
-                               [0, 0, 0, 1]
-                              ])
-        self.coords = np.array(list(map(ponto.Ponto.coordenates,dot_list)))
-        self.n_coords = self.coords@np.array([[1/w_size[0], 0, 0, 0],
-                                              [0, 1/w_size[1], 0, 0],
-                                              [0, 0, 1/w_size[1], 0],
-                                              [0, 0, 0, 1]
-                                           ])
+    def __init__(self, dot_list, wSize, normalizationMatrix = np.eye(4, 4), offset=(10,10), color_list=cycle([(0,0,0)])):
+
+        self.worldCoordinates = np.array(dot_list)
+
+        self.normalizationMatrix = normalizationMatrix
+
         self.off = np.array([[1, 0, 0, 0],
-                                              [0, 1, 0, 0],
-                                              [0, 0, 1, 0],
-                                              [260, 260, 260, 1]
-                                           ])
+                             [0, 1, 0, 0],
+                             [0, 0, 1, 0],
+                             [260, 260, 260, 1]
+                            ])
+
         self.color_list = color_list
-        self.w_size = w_size
-        self.bounds = w_size[0]+offset[0], w_size[1]+offset[1]
+        self.wSize = wSize
+        self.bounds = wSize[0] + offset[0], wSize[1] + offset[1]
         self.bx, self.by = self.bounds
         self.offset = offset
 
-    def coordenates(self):
-        return self.n_coords@self.scale
+    def normalizedCoordinates(self):
+        return self.worldCoordinates @ self.normalizationMatrix
 
-    def normal_coordenates(self):
-        return self.n_coords
+    def viewPortCoordinates(self):
+        return Operations.transformViewPort(self.normalizedCoordinates(), self.wSize)
     
     def draw_persp(self, cr, matrix, offset): # passar a matriz com 1/d mtxd@coords@mtx
         d = 260
-        temp_ = self.coordenates()@matrix + (0,0,d,0)#@self.off
+        temp_ = self.worldCoordinates @ matrix + (0,0,d,0)#@self.off
         for i,j in enumerate(temp_):
             zd = j[2]/d
             temp_[i][0] = temp_[i][0]/zd
@@ -57,7 +53,7 @@ class Wireframe():
             cr.stroke()
     
     def draw(self, cr, matrix, offset):
-        temp_ = self.coordenates()@matrix + (260,260,260,0)#@self.off
+        temp_ = self.worldCoordinates @ matrix + (260,260,260,0)#@self.off
         for p1, p2, color in zip(temp_, temp_[1:], self.color_list):
             drw, cps = self.clipSC(np.array([p1,p2]))
             p1c, p2c = cps
@@ -73,7 +69,7 @@ class Wireframe():
 
     def transcript(self):
         points = ""
-        for p in self.coordenates():
+        for p in self.worldCoordinates:
             points = "v {} {} {}".format(p[0],p[1],p[2]) if not points else '\n'.join([points, "v {} {} {}".format(p[0],p[1],p[2])])
 
         return "l",points

@@ -1,36 +1,31 @@
 import numpy as np
 
+import Objects as Operations
 import ponto
 
 class Reta():
-    def __init__(self, i0, i1, color=(0,0,0),w_size=(500,500), offset=(10,10)):
-        self.scale = np.array([[w_size[0], 0, 0, 0],
-                               [0, w_size[1], 0, 0],
-                               [0, 0, w_size[1], 0],
-                               [0, 0, 0, 1]
-                              ])
-        self.coords = np.array([i0.coordenates(),
-                           i1.coordenates()])
-        self.n_coords = self.coords@np.array([[1/w_size[0], 0, 0, 0],
-                                              [0, 1/w_size[1], 0, 0],
-                                              [0, 0, 1/w_size[1], 0],
-                                              [0, 0, 0, 1]
-                                           ])
+    def __init__(self, ponto1: ponto, ponto2: ponto, wSize, normalizationMatrix = np.eye(4, 4), offset=(10,10), color=(0,0,0)):
+
+        self.worldCoordinates = np.array([ponto1.worldCoordinates, ponto2.worldCoordinates])
+
+        self.wSize = wSize
+
+        self.normalizationMatrix = normalizationMatrix
+
         self.r, self.g, self.b = color
-        self.w_size = w_size
-        self.bounds = w_size[0]+offset[0], w_size[1]+offset[1]
+        self.bounds = wSize[0] + offset[0], wSize[1] + offset[1]
         self.offset = offset
         self.clip = self.clipSC
 
-    def coordenates(self):
-        return self.n_coords@self.scale
+    def normalizedCoordinates(self):
+        return self.worldCoordinates @ self.normalizationMatrix
 
-    def normal_coordenates(self):
-        return self.n_coords
+    def viewPortCoordinates(self):
+        return Operations.transformViewPort(self.normalizedCoordinates(), self.wSize)
     
     def draw_persp(self, cr, matrix, offset): # passar a matriz com 1/d mtxd@coords@mtx
         d = 260
-        temp_ = self.coordenates()@matrix + (0,0,d,0)#@self.off
+        temp_ = self.worldCoordinates @ matrix + (0,0,d,0)#@self.off
         for i,j in enumerate(temp_):
             zd = j[2]/d
             temp_[i][0] = temp_[i][0]/zd
@@ -49,7 +44,7 @@ class Reta():
             cr.set_source_rgb(self.r, self.g, self.b)
             cr.stroke()
     #def draw_persp(self, cr, matrix, offset):#, matrix_tr):
-    #    drw, temp_ = self.clip(self.coordenates()@matrix + (260,260,260,0))# + offset
+    #    drw, temp_ = self.clip(self.worldCoordinates()@matrix + (260,260,260,0))# + offset
     #    if drw:
     #        return
     #    cr.move_to(temp_[0][0], temp_[0][1])
@@ -57,7 +52,7 @@ class Reta():
     #    cr.set_source_rgb(self.r, self.g, self.b)
     #    cr.stroke()
     def draw(self, cr, matrix, offset):#, matrix_tr):
-        drw, temp_ = self.clip(self.coordenates()@matrix + (260,260,260,0))# + offset
+        drw, temp_ = self.clip(self.worldCoordinates @ matrix + (260,260,260,0))# + offset
         if drw:
             return
         cr.move_to(temp_[0][0], temp_[0][1])
@@ -70,7 +65,7 @@ class Reta():
 
     def transcript(self):
         points = ""
-        for p in self.coordenates():
+        for p in self.worldCoordinates:
             points = "v {} {} {}".format(p[0],p[1], p[2]) if not points else '\n'.join([points,"v {} {} {}".format(p[0],p[1], p[2])])
 
         return "l",points
