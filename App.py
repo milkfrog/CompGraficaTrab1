@@ -2,14 +2,10 @@
 from tkinter import *
 from tkinter import ttk
 import numpy as np
-from math import sin, cos, pi, ceil
-from collections import defaultdict
+from math import sin, cos, pi, ceil, sqrt, atan
+from copy import deepcopy
 
-import Objects as Operations
-
-from ponto import *
-from reta import *
-from wireframe import *
+from Objetos import *
 
 
 class App:
@@ -24,38 +20,30 @@ class App:
         self.renderWidget()
 
         # Configs iniciais:
-        self.window = np.array([[self.canvas.winfo_width(), self.canvas.winfo_height(), 0, 1],
-                                [self.canvas.winfo_width(), 0, 0, 1],
-                                [0, 0, 0, 1],
-                                [0, self.canvas.winfo_height(), 0, 1]])
-        self.windowTransform = np.eye(4, 4)
-        self.windowRotation = 0
-        self.vUpVector = Operations.viewUpVector(self.windowRotation)
-        self.vRightVector = Operations.viewRightVector(self.windowRotation)
-        self.dots = defaultdict(lambda:None)
-        self.lines = defaultdict(lambda:None)
-        self.wireframes = defaultdict(lambda:None)
-        self.displayFile = defaultdict(lambda:None)
-        self.surface = None
-        self.selected_obj = None
-        self.wireframe_aux = []
-        self.bspline_aux = []
-        self.wireframe_rgb = []
-        self.matrix = np.identity(4)
-        self.matrix_tr = np.array([[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]])
-        self.matrix_rot = np.identity(4)
-        self.step = np.eye(4,4)
-        self.rotate_point = True
-        self.cx, self.cy, self.cz = 0,0,0
-        self.dx, self.dy, self.dz = 0,0,0
-        self.wcx, self.wcy, self.wcz = 0,0,0
-        self.ang = 0
-        self.single_obj = False
-        self.w_size = 500
-        self.s = np.array([[1/500,0,0,0],[0,1/500,0,0],[0,0,1/500,0],[0,0,0,1]])
-        self.threshold = ((10,10),(10,510),(510,510),(510,10))
+        self.displayFile = []
+        self.displayFileNormalizado = []
+        self.displayFileClipado = []
+
+        # config da Window:
+        self.window = np.array([[0,0,0],[0,self.canvas.winfo_height(),0],[self.canvas.winfo_width(),self.canvas.winfo_height(),0],[self.canvas.winfo_width(),0,0]])
+        (x,y,z) = (0,0,0)
+        for i in self.window:
+            x += i[0]
+            y += i[1]
+        self.windowCenter = [x/len(self.window), y/len(self.window), z/len(self.window)]
+        self.windowNormal = [Coordenada(-1,-1), Coordenada(1,-1), Coordenada(1,1), Coordenada(-1,1)]
+
+        # config da ViewPort:
+        self.padViewPort = 20
+        self.viewPort = [Coordenada(0+self.padViewPort,0+self.padViewPort),Coordenada(0+self.padViewPort,self.canvas.winfo_height()-self.padViewPort),Coordenada(self.canvas.winfo_width()-self.padViewPort,self.canvas.winfo_height()-self.padViewPort),Coordenada(self.canvas.winfo_width()-self.padViewPort,0+self.padViewPort)]
+
+        self.anguloRotacaoWindowEixoX = 0
+        self.anguloRotacaoWindowEixoY = 0
+        self.anguloRotacaoWindowEixoZ = 0
+       
 
         # Inicializa:
+        self.renderObjetcs()
         self.root.mainloop()
 
     def renderWidget(self):
@@ -82,14 +70,24 @@ class App:
         frameDirecoes.pack(side=LEFT, fill=X)
         frameZoom = Frame(labelWindow)
         frameZoom.pack(side=RIGHT)
-        Button(frameDirecoes, text="↑", command=lambda: self.moveWindow("n")).grid(row=0, column=1)
-        Button(frameDirecoes, text="←", command=lambda: self.moveWindow("w")).grid(row=1, column=0)
-        Button(frameDirecoes, text="↓", command=lambda: self.moveWindow("s")).grid(row=1, column=1)
-        Button(frameDirecoes, text="→", command=lambda: self.moveWindow("e")).grid(row=1, column=2)
+        Button(frameDirecoes, text="↑", command=lambda: self.moveWindow("↑")).grid(row=0, column=1)
+        Button(frameDirecoes, text="←", command=lambda: self.moveWindow("←")).grid(row=1, column=0)
+        Button(frameDirecoes, text="↓", command=lambda: self.moveWindow("↓")).grid(row=1, column=1)
+        Button(frameDirecoes, text="→", command=lambda: self.moveWindow("→")).grid(row=1, column=2)
         Button(frameZoom, text="+", command=lambda: self.zoomWindow("+")).grid(row=0, column=0)
         Button(frameZoom, text="-", command=lambda: self.zoomWindow("-")).grid(row=1, column=0)
-        Button(frameDirecoes, text="↺", command=lambda: self.rotateWindow("l")).grid(row=2, column=0)
-        Button(frameDirecoes, text="↻", command=lambda: self.rotateWindow("r")).grid(row=2, column=2)
+        frameRotacao = Frame(labelWindow)
+        frameRotacao.pack()
+        Label(frameRotacao, text="Eixo X: ").grid(row=0, column=0)
+        Button(frameRotacao, text="↻", command=lambda: self.rotateWindow("↻", "x")).grid(row=0, column=1)
+        Button(frameRotacao, text="↺", command=lambda: self.rotateWindow("↺", "x")).grid(row=0, column=2)
+        Label(frameRotacao, text="Eixo Y: ").grid(row=1, column=0)
+        Button(frameRotacao, text="↻", command=lambda: self.rotateWindow("↻", "y")).grid(row=1, column=1)
+        Button(frameRotacao, text="↺", command=lambda: self.rotateWindow("↺", "y")).grid(row=1, column=2)
+        Label(frameRotacao, text="Eixo Z: ").grid(row=2, column=0)
+        Button(frameRotacao, text="↻", command=lambda: self.rotateWindow("↻", "z")).grid(row=2, column=1)
+        Button(frameRotacao, text="↺", command=lambda: self.rotateWindow("↺", "z")).grid(row=2, column=2)
+        
 
         # frame de Transformacao de Objetos
         self.opcaoCentroDeRotacao = StringVar()
@@ -111,10 +109,10 @@ class App:
         frameRotacaoBotoes.pack(side=LEFT, fill=X)
         frameRotacaoOpcoes = Frame(labelRotacao)
         frameRotacaoOpcoes.pack(side=RIGHT)
-        Button(frameTranslacao, text="↑", command=lambda: self.moveObject("n")).grid(row=0, column=1)
-        Button(frameTranslacao, text="←", command=lambda: self.moveObject("w")).grid(row=1, column=0)
-        Button(frameTranslacao, text="↓", command=lambda: self.moveObject("s")).grid(row=1, column=1)
-        Button(frameTranslacao, text="→", command=lambda: self.moveObject("e")).grid(row=1, column=2)
+        Button(frameTranslacao, text="↑", command=lambda: self.moveObject("↑")).grid(row=0, column=1)
+        Button(frameTranslacao, text="←", command=lambda: self.moveObject("←")).grid(row=1, column=0)
+        Button(frameTranslacao, text="↓", command=lambda: self.moveObject("↓")).grid(row=1, column=1)
+        Button(frameTranslacao, text="→", command=lambda: self.moveObject("→")).grid(row=1, column=2)
         Button(frameEscalonamento, text="+", command=lambda: self.scaleObject("+")).grid(row=0, column=0)
         Button(frameEscalonamento, text="-", command=lambda: self.scaleObject("-")).grid(row=1, column=0)
         Button(frameRotacaoBotoes, text="↺", command=lambda: self.rotateObject("l")).grid(row=0, column=0)
@@ -147,70 +145,216 @@ class App:
         self.canvas.delete("all")
         self.root.update_idletasks()
 
-        # setup para a normalizacao do mundo
-        self.window = self.window @ self.windowTransform
-        normalizationMatrix = Operations.normalizationMatrix(self.window, self.windowRotation)
+        # inclui linha vermelha da viewport:
+        coordenadasViewPort = []
+        for ponto in self.viewPort:
+            coordenadasViewPort += [ponto.x, ponto.y]
+        self.canvas.create_polygon(coordenadasViewPort, outline='#ff0000', fill="")
+
+        self.getDisplayFileNormalizado()
+        self.cliparObjetos()
 
         # inicio desenho no canvas:
-        for o in self.displayFile.items():
-            o[1].normalizationMatrix = normalizationMatrix
-            viewPortCoordinates = o[1].viewPortCoordinates()
-            if isinstance(o[1], reta.Reta) or isinstance(o[1], Wireframe):
-                displayCoords = []
-                for i in range(len(viewPortCoordinates[:, 0])):
-                    displayCoords += [viewPortCoordinates[i, 0], viewPortCoordinates[i, 1]]
-                # precisa incluir a primeira coordenada de novo pra que seja feita a linha tbm da ultima coordenada com a primeira:
-                displayCoords += [viewPortCoordinates[0, 0], viewPortCoordinates[0, 1]]
-                self.canvas.create_line(displayCoords)
-            else:
-                x = viewPortCoordinates[0, 0]
-                y = viewPortCoordinates[0, 1]
-                self.canvas.create_oval(x - 0.5, y - 0.5, x + 0.5, y + 0.5)
-        # fim desenho no canvas
+        for o in self.displayFileClipado:
+            for coordenadas in o.clipado:   
+                coordenadasCanvas = []
+                for coordenada in coordenadas:
+                    coordenadasCanvas += [coordenada.x + self.padViewPort, coordenada.y + self.padViewPort]
+                if isinstance(o, Ponto):
+                    self.canvas.create_oval(coordenadasCanvas[0] - 0.5 + self.padViewPort, coordenadasCanvas[1] - 0.5 +self.padViewPort, coordenadasCanvas[0] + 0.5 + self.padViewPort, coordenadasCanvas[1] + 0.5 + self.padViewPort, fil=o.cor)
+                if isinstance(o, Reta):
+                    self.canvas.create_line(coordenadasCanvas, fill=o.cor)
+                if isinstance(o, Wireframe):
+                    self.canvas.create_polygon(coordenadasCanvas, outline=o.cor, fill="")
+
+    def cliparObjetos(self):
+        self.displayFileClipado = []
+        for objetoNormalizado in self.displayFileNormalizado:
+            aux = deepcopy(objetoNormalizado)
+            if isinstance(aux, Ponto):
+                aux.clipPonto()
+            if isinstance(aux, Reta):
+                aux.clipReta()
+            if (isinstance(aux, Wireframe) and aux.tipoEspecifico == 'wireframe'):
+                aux.clipWireframe()
+            if (isinstance(aux, Wireframe) and aux.tipoEspecifico == 'curva'):
+                pass
+            if (isinstance(aux, Wireframe) and aux.tipoEspecifico == 'bSpline'):
+                pass
+            clipAux = []
+            for coord in aux.clipado:
+                if (len(coord) == 1):
+                    clipAux.append(coord)
+                    continue
+                arestaAux = deepcopy(coord)
+                for i in [0,1]:
+                    if (not isinstance(coord[i], Coordenada)):
+                        arestaAux[i] = aux.coordenadas[coord[i]]
+                clipAux.append(arestaAux)
+            aux.clipado = list(map(self.transformaCoordenadas, clipAux))
+            self.displayFileClipado.append(aux)
+
+    def transformaCoordenadas(self, coordenadas):
+        aux = []
+        for coordenada in coordenadas:
+            aux.append(self.getViewportCoordenadas(coordenada))
+        return aux
+
+    def getViewportCoordenadas(self, coordenadas):
+        vpCoordMin = self.viewPort[0]
+        vpCoordMax = self.viewPort[2]
+        wCoordMin = self.windowNormal[0]
+        wCoordMax = self.windowNormal[2]
+        x = (coordenadas.x - wCoordMin.x)*(vpCoordMax.x - vpCoordMin.x)/(wCoordMax.x - wCoordMin.x)
+        y = (1 - ((coordenadas.y - wCoordMin.y)/(wCoordMax.y - wCoordMin.y)))*(vpCoordMax.y - vpCoordMin.y)
+        return Coordenada(x,y)
+
+    def getDisplayFileNormalizado(self):
+        self.displayFileNormalizado = []
+        matrizSCN = self.getMatrizSCN().tolist()
+        objetos = deepcopy(self.displayFile)
+        
+        # incluir config na GUI pra deicidir entre qual projecao:
+        # self.projecaoPerspectiva(objetos)
+        # self.projecaoParalela()  
+
+        for objeto in objetos:
+            aux = []
+            for coordenada in objeto.coordenadas:
+                coord = np.array([[coordenada.x, coordenada.y, coordenada.z, 1]]).dot(np.array(matrizSCN)).tolist()
+                aux.append(Coordenada(coord[0][0], coord[0][1], coord[0][2]))
+            objeto.normalizado = True
+            objeto.coordenadas = aux
+            self.displayFileNormalizado.append(objeto)
+
+    def projecaoParalela(self):
+        aux1 = np.array([[self.windowCenter[0], self.windowCenter[1], self.windowCenter[2], 1]])
+        windowCenterNegativo = np.array(self.windowCenter).dot(-1)
+        aux2 = [[1,0,0,0],[0,1,0,0],[0,0,1,0],[windowCenterNegativo[0], windowCenterNegativo[1], windowCenterNegativo[2], 1]]
+        vrpt = np.delete(aux1.dot(aux2), 3, 1)
+        p1 = vrpt - np.array(self.window[0]) - np.array(self.windowCenter)
+        p2 = np.array(self.window[1]) - np.array(self.windowCenter) - vrpt
+        vpn = np.array([p1[0][1] * p2[0][2] - p1[0][2] * p2[0][1], p1[0][2] * p2[0][0] - p1[0][0] * p2[0][2], p1[0][0] * p2[0][1] - p1[0][1] * p2[0][0]])
+        valor1 = 0 if vpn[2] == 0 else vpn[1]/vpn[2]
+        valor2 = 0 if vpn[2] == 0 else vpn[0]/vpn[2]
+        teta = [atan(valor1), atan(valor2)]
+        aux3 = []
+        for coordenada in self.window:
+            aux3.append(np.delete(np.array([coordenada[0],coordenada[1],coordenada[2],1]).dot(np.array([[1,0,0,0],[0,1,0,0],[0,0,1,0],[-self.windowCenter[0],-self.windowCenter[1],-self.windowCenter[2],1]])),3,0).tolist())
+        tetaX = round((360-teta[0])*(pi/180), 5)
+        tetaY = round((360-teta[1])*(pi/180), 5)
+        rotacaoX = np.array([[1,0,0,0],[0,round(cos(tetaX),5),round(sin(tetaX),5),0],[0,round(-sin(tetaX),5),round(cos(tetaX),5),0],[0,0,0,1]])
+        rotacaoY = np.array([[round(cos(tetaY),5),0,round(-sin(tetaY),5),0],[0,1,0,0],[round(sin(tetaY),5),0,round(cos(tetaY),5),0],[0,0,0,1]])
+        aux4 = []
+        for coordenada in aux3:
+            aux4.append(np.delete(np.array([[coordenada[0],coordenada[1],coordenada[2],1]]).dot(rotacaoX).dot(rotacaoY),3,1)[0].tolist())
+        self.window = np.array(aux4)
+        for objeto in self.displayFile:
+            aux5 = []
+            for coordenada in objeto.coordenadas:
+                coord = np.delete(np.array([coordenada.x,coordenada.y,coordenada.z,1]).dot(np.array([[1,0,0,0],[0,1,0,0],[0,0,1,0],[-self.windowCenter[0],-self.windowCenter[1],-self.windowCenter[2],1]])),3,0).tolist()
+                aux5.append(Coordenada(coord[0], coord[1], coord[2]))
+            aux6 = []
+            for coordenada in aux5:
+                coord = np.delete(np.array([[coordenada.x,coordenada.y,coordenada.z,1]]).dot(rotacaoX).dot(rotacaoY),3,1)[0].tolist()
+                aux6.append(Coordenada(coord[0], coord[1], coord[2]))
+            objeto.coordenadas = aux6
+            if (isinstance(objeto, Wireframe) and objeto.tipoEspecifico == 'Curva'):
+                objeto.arestas = []
+                for i in range(len(objeto.coordenadas)-1):
+                    objeto.arestas.append([i, i+1])
+
+    def projecaoPerspectiva(self):
+        pass
+
+    def getMatrizSCN(self):
+        matrizDeTranslacao = np.array([[1,0,0,0],[0,1,0,0],[0,0,1,0],[-self.windowCenter[0],-self.windowCenter[1],-self.windowCenter[2],1]])
+        (anguloX, anguloY, anguloZ) = (360-self.anguloRotacaoWindowEixoX)*(pi/180), (360-self.anguloRotacaoWindowEixoY)*(pi/180), (360-self.anguloRotacaoWindowEixoZ)*(pi/180)
+        matrizDeRotacao = np.array([[1,0,0,0],[0,round(cos(anguloX),5),round(sin(anguloX),5),0],[0,round(-sin(anguloX),5),round(cos(anguloX),5),0],[0,0,0,1]]).dot(np.array([[round(cos(anguloY),5),0,round(-sin(anguloY),5),0],[0,1,0,0],[round(sin(anguloY),5),0,round(cos(anguloY),5),0],[0,0,0,1]])).dot(np.array([[round(cos(anguloZ),5),round(sin(anguloZ),5),0,0],[round(-sin(anguloZ),5),round(cos(anguloZ),5),0,0],[0,0,1,0],[0,0,0,1]]))
+        windowWidth = sqrt((self.window[1][0]-self.window[0][0])**2 + (self.window[1][1]-self.window[0][1])**2)/2
+        windowHeight = sqrt((self.window[3][0]-self.window[0][0])**2 + (self.window[3][1]-self.window[0][1])**2)/2
+        matrizDeEscala = np.array([[1/windowWidth,0,0,0],[0,1/windowHeight,0,0],[0,0,1,0],[0,0,0,1]])
+        return matrizDeTranslacao.dot(matrizDeRotacao).dot(matrizDeEscala)
 
     def zoomWindow(self, tipo):
-        operador = 1.25 if tipo == "+" else 1 / 1.25
-        self.windowTransform = self.windowTransform.dot(Operations.scaleMatrix([operador, operador], Operations.objectCenter(self.window)))
+        zoomValue = 0.1
+        if tipo == "+":
+            valor = 1 - zoomValue
+        if tipo == "-":
+            valor = 1 + zoomValue
+        centro = self.windowCenter
+
+        for coordenada in self.window:
+            aux1 = np.array([[coordenada[0],coordenada[1],coordenada[2],1]])
+            aux2 = np.array([[1,0,0,0],[0,1,0,0],[0,0,1,0],[Cx,Cy,0,1]])
+            final = aux1.dot(aux2).tolist()
+            aux.append(final[0])
+        self.window = aux
         self.log.insert(0, "zoom "+tipo+" na Window")
         self.renderObjetcs()
 
     def moveWindow(self, direction):
-        tValue = 20
-        if direction == "n":
-            self.windowTransform = self.windowTransform.dot(Operations.translateMatrix(tValue * self.vUpVector))
-        elif direction == "w":
-            self.windowTransform = self.windowTransform.dot(Operations.translateMatrix(-tValue * self.vRightVector))
-        elif direction == "s":
-            self.windowTransform = self.windowTransform.dot(Operations.translateMatrix(-tValue * self.vUpVector))
-        elif direction == "e":
-            self.windowTransform = self.windowTransform.dot(Operations.translateMatrix(tValue * self.vRightVector))
+        valor = 0.1
+        Cx = 0
+        Cy = 0
+        windowWidth = sqrt((self.window[1][0]-self.window[0][0])**2 + (self.window[1][1]-self.window[0][1])**2)/2
+        windowHeight = sqrt((self.window[3][0]-self.window[0][0])**2 + (self.window[3][1]-self.window[0][1])**2)/2
+        if direction == "↑":
+            Cy = windowHeight * valor
+        elif direction == "←":
+            Cx = -windowWidth * valor
+        elif direction == "↓":
+            Cy = -windowHeight * valor
+        elif direction == "→":
+            Cx = windowWidth * valor
+        aux = []
+        for coordenada in self.window:
+            aux1 = np.array([[coordenada[0],coordenada[1],coordenada[2],1]])
+            aux2 = np.array([[1,0,0,0],[0,1,0,0],[0,0,1,0],[Cx,Cy,0,1]])
+            final = aux1.dot(aux2).tolist()
+            aux.append(final[0])
+        self.window = aux
+        (x,y,z) = (0,0,0)
+        for i in self.window:
+            x += i[0]
+            y += i[1]
+        self.windowCenter = [x/len(self.window), y/len(self.window), z/len(self.window)]
         self.renderObjetcs()
         self.log.insert(0, "Window movida na direção "+direction)
 
-    def rotateWindow(self, direction):
-        angle = pi / 9 if direction == "l" else -pi / 9
-        self.windowTransform = self.windowTransform.dot(Operations.rotateMatrix(angle, Operations.objectCenter(self.window)))
-        self.windowRotation += angle
-        self.vUpVector = Operations.viewUpVector(self.windowRotation)
-        self.vRightVector = Operations.viewRightVector(self.windowRotation)
+    def rotateWindow(self, direction, axis):
+        # 20 graus:
+        angle = pi / 9
+        if axis == 'x':
+            self.windowRotate = self.windowRotate.dot(np.array([[1,0,0,0],[0,cos(angle),-sin(angle),0],[0,sin(angle),cos(angle),0],[0,0,0,1]]))
+        elif axis == 'y':
+            self.windowRotate = self.windowRotate.dot(np.array([[cos(angle),0,-sin(angle),0],[0,1,0,0],[sin(angle),0,cos(angle),0],[0,0,0,1]]))
+        elif axis == 'z':
+            self.windowRotate = self.windowRotate.dot(np.array([[cos(angle),-sin(angle),0,0],[sin(angle),cos(angle),0,0],[0,0,1,0],[0,0,0,1]]))
 
     def moveObject(self, direction):
-        valorDeTranslacao = 10
+        valorDeTranslacao = 0.1
+        windowHeight = sqrt((self.window[3][0]-self.window[0][0])**2 + (self.window[3][1]-self.window[0][1])**2)/2
+        valor = windowHeight * valorDeTranslacao
         try:
             obj = self.displayFile[self.listObjects.curselection()[0]]
-            # cria matriz identidade 3x3:
-            tMatrix = np.eye(3)
-            if direction == "n":
-                tMatrix[2, 1] = valorDeTranslacao
-            elif direction == "w":
-                tMatrix[2, 0] = -valorDeTranslacao
-            elif direction == "s":
-                tMatrix[2, 1] = -valorDeTranslacao
-            elif direction == "e":
-                tMatrix[2, 0] = valorDeTranslacao
-            obj.worldCoordinates = obj.worldCoordinates.dot(tMatrix)
+            if direction == "↑":
+                (Cx,Cy) = (0,valor)
+            elif direction == "←":
+                (Cx,Cy) = (-valor,0)
+            elif direction == "↓":
+                (Cx,Cy) = (0,-valor)
+            elif direction == "→":
+                (Cx,Cy) = (valor,0)
+            aux = []
+            for coordenada in obj.coordenadas:
+                aux1 = np.array([[coordenada.x,coordenada.y,coordenada.z,1]])
+                aux2 = np.array([[1,0,0,0],[0,1,0,0],[0,0,1,0],[Cx,Cy,0,1]])
+                final = aux1.dot(aux2).tolist()
+                aux.append(Coordenada(final[0][0],final[0][1],final[0][2]))
+            obj.coordenadas = aux
             self.renderObjetcs()
-            self.log.insert(0, obj.name+" movido na direcao "+direction)
+            self.log.insert(0, obj.nome+" movido na direcao "+direction)
         except:
             self.log.insert(0, "Selecione um objeto primeiro.")
 
@@ -239,11 +383,15 @@ class App:
         self.log.insert(0, obj.name+(" ampliado" if tipo == "+" else " reduzido"))
     
     def removeObject(self):
-        selectedObjectIndex = self.listObjects.curselection()[0]
-        self.log.insert(0, "Objeto "+ self.displayFile[selectedObjectIndex].name + " removido")
-        self.displayFile.pop(self.listObjects.curselection()[0])
-        self.listObjects.delete(self.listObjects.curselection()[0])
-        self.renderObjetcs()
+        try:
+            selectedObjectIndex = self.listObjects.curselection()[0]
+            nome = self.displayFile[selectedObjectIndex].nome
+            self.displayFile.pop(selectedObjectIndex)
+            self.listObjects.delete(self.listObjects.curselection()[0])
+            self.log.insert(0, "Objeto "+ nome + " removido")
+            self.renderObjetcs()
+        except:
+            self.log.insert(0, "Selecione um objeto para Deletar.")
     
     def addObject(self):
         self.objectCoordinates = []
@@ -273,7 +421,7 @@ class App:
         framePonto.pack(fill=BOTH)
         self.x1 = DoubleVar()
         self.y1 = DoubleVar()
-        self.z1 = DoubleVar(value=1)
+        self.z1 = DoubleVar(value=0)
         Label(framePonto, text='X = ').grid(row=0, column=0)
         Entry(framePonto, textvariable=self.x1, width=13).grid(row=0, column=1)
         Label(framePonto, text='Y = ').grid(row=0, column=2)
@@ -287,7 +435,7 @@ class App:
         frameReta.pack(fill=X)
         self.x2 = DoubleVar()
         self.y2 = DoubleVar()
-        self.z2 = DoubleVar(value=1)
+        self.z2 = DoubleVar(value=0)
         Label(frameReta, text='X1 = ').grid(row=0, column=0)
         Entry(frameReta, textvariable=self.x1, width=13).grid(row=0, column=1)
         Label(frameReta, text='Y1 = ').grid(row=0, column=2)
@@ -339,7 +487,7 @@ class App:
             for i in range(self.vertices.get()):
                 self.wireFrameX.append(DoubleVar())
                 self.wireFrameY.append(DoubleVar())
-                self.wireFrameZ.append(DoubleVar(value=1))
+                self.wireFrameZ.append(DoubleVar(value=0))
                 Label(self.frameCoords, text="X"+str(i+1)+" = ").grid(row=i, column=0)
                 Entry(self.frameCoords, textvariable=self.wireFrameX[i], width=10).grid(row=i, column=1)
                 Label(self.frameCoords, text="Y"+str(i+1)+" = ").grid(row=i, column=2)
@@ -351,15 +499,16 @@ class App:
             print("exception do updateWireframeAdd trollzinho")
 
     def addCoordinates(self, tipo):
+        coordenadas = []
         self.root.update_idletasks()
         name = self.objectName.get()
-        windowSize = (self.canvas.winfo_width(), self.canvas.winfo_height())
         if (tipo == "Ponto"):
             self.log.insert(0, "Ponto")
             x = self.x1.get()
             y = self.y1.get()
             z = self.z1.get()
-            self.displayFile[name] = Ponto(x, y, z, windowSize)
+            coordenadas.append(Coordenada(x,y,z))
+            self.displayFile.append(Ponto(name, coordenadas))
         elif (tipo == "Reta"):
             self.log.insert(0, "Reta")
             x1 = self.x1.get()
@@ -368,13 +517,14 @@ class App:
             x2 = self.x2.get()
             y2 = self.y2.get()
             z2 = self.z2.get()
-            self.displayFile[name] = Reta(Ponto(x1, y1, z1), Ponto(x2, y2, z2), windowSize)
+            coordenadas.append(Coordenada(x1,y1,z1))
+            coordenadas.append(Coordenada(x2,y2,z2))
+            self.displayFile.append(Reta(name, coordenadas))
         elif (tipo == "Wireframe"):
             self.log.insert(0, "Wireframe")
-            self.listaPontos = []
             for i in range(self.vertices.get()):
-                self.listaPontos.append(np.array([self.wireFrameX[i].get(), self.wireFrameY[i].get(), self.wireFrameZ[i].get(), 1]))
-            self.displayFile[name] = Wireframe(self.listaPontos, windowSize)
+                coordenadas.append(Coordenada(self.wireFrameX[i].get(), self.wireFrameY[i].get(), self.wireFrameZ[i].get()))
+            self.displayFile.append(Wireframe(name, coordenadas))
 
         indiceItensRegistrados = len(self.displayFile)
         self.listObjects.insert(END, str(indiceItensRegistrados)+") " + name + "("+tipo+")")
