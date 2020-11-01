@@ -397,12 +397,40 @@ class App:
             self.log.insert(0, "Selecione um objeto primeiro.")
 
     def scaleObject(self, tipo):
-        obj = self.displayFile[self.listObjects.curselection()[0]]
-        centro = Operations.objectCenter(obj.coordinates)
-        z = 1.5 if tipo == "+" else 0.5
-        obj.worldCoordinates = obj.worldCoordinates.dot(Operations.scaleMatrix([z, z], centro))
-        self.renderObjetcs()
-        self.log.insert(0, obj.name+(" ampliado" if tipo == "+" else " reduzido"))
+        try:
+            obj = self.displayFile[self.listObjects.curselection()[0]]
+            zoomValue = 0.1
+            if tipo == "+":
+                valor = 1 + zoomValue
+            if tipo == "-":
+                valor = 1 - zoomValue
+            centro = obj.getCentro()
+
+            matriz1 = []
+            for coordenada in obj.coordenadas:
+                aux1 = np.array([[coordenada.x,coordenada.y,coordenada.z,1]])
+                aux2 = np.array([[1,0,0,0],[0,1,0,0],[0,0,1,0],[-centro.x,-centro.y,-centro.z,1]])
+                final = aux1.dot(aux2).tolist()
+                matriz1.append(Coordenada(final[0][0],final[0][1],final[0][2]))
+            obj.coordenadas = matriz1
+            matriz2 = []
+            for coordenada in obj.coordenadas:
+                aux3 = np.array([[coordenada.x,coordenada.y,coordenada.z,1]])
+                aux4 = np.array([[valor, 0,0,0],[0,valor,0,0],[0,0,1,0],[0,0,0,1]])
+                final2 = aux3.dot(aux4).tolist()
+                matriz2.append(Coordenada(final2[0][0],final2[0][1],final2[0][2]))
+            obj.coordenadas = matriz2
+            matriz3 = []
+            for coordenada in obj.coordenadas:
+                aux1 = np.array([[coordenada.x,coordenada.y,coordenada.z,1]])
+                aux2 = np.array([[1,0,0,0],[0,1,0,0],[0,0,1,0],[centro.x,centro.y,centro.z,1]])
+                final = aux1.dot(aux2).tolist()
+                matriz3.append(Coordenada(final[0][0],final[0][1],final[0][2]))
+            obj.coordenadas = matriz3 
+            self.renderObjetcs()
+            self.log.insert(0, obj.nome+(" ampliado" if tipo == "+" else " reduzido"))
+        except:
+            self.log.insert(0, "Selecione um objeto primeiro.")
     
     def removeObject(self):
         try:

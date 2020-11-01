@@ -129,7 +129,15 @@ class Wireframe:
         self.tipoEspecifico = tipoEspecifico
 
         self.clipado = []
-        # self.centro = self.getCentro()
+        self.centro = self.getCentro()
+
+    def getCentro(self):
+        x = 0
+        y = 0
+        for coordenada in self.coordenadas:
+            x += coordenada.x
+            y += coordenada.y
+        return Coordenada((x/len(self.coordenadas)),(y/len(self.coordenadas)))
 
     def getIntersecao(self, ponto1, ponto2, listaRegionCodes):
         regionCodeIntersecta = False
