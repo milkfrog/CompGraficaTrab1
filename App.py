@@ -30,6 +30,7 @@ class App:
         for i in self.window:
             x += i[0]
             y += i[1]
+            z += i[2]
         self.windowCenter = [x/len(self.window), y/len(self.window), z/len(self.window)]
         self.windowNormal = [Coordenada(-1,-1), Coordenada(1,-1), Coordenada(1,1), Coordenada(-1,1)]
 
@@ -283,13 +284,34 @@ class App:
         if tipo == "-":
             valor = 1 + zoomValue
         centro = self.windowCenter
-
+        matriz1 = []
         for coordenada in self.window:
             aux1 = np.array([[coordenada[0],coordenada[1],coordenada[2],1]])
-            aux2 = np.array([[1,0,0,0],[0,1,0,0],[0,0,1,0],[Cx,Cy,0,1]])
+            aux2 = np.array([[1,0,0,0],[0,1,0,0],[0,0,1,0],[-centro[0],-centro[1],-centro[2],1]])
             final = aux1.dot(aux2).tolist()
-            aux.append(final[0])
-        self.window = aux
+            matriz1.append(final[0])
+        self.window = matriz1
+        matriz2 = []
+        for coordenada in self.window:
+            aux3 = np.array([[coordenada[0],coordenada[1],coordenada[2],1]])
+            aux4 = np.array([[valor, 0,0,0],[0,valor,0,0],[0,0,1,0],[0,0,0,1]])
+            final2 = aux3.dot(aux4).tolist()
+            matriz2.append(final2[0])
+        self.window = matriz2
+        matriz3 = []
+        for coordenada in self.window:
+            aux1 = np.array([[coordenada[0],coordenada[1],coordenada[2],1]])
+            aux2 = np.array([[1,0,0,0],[0,1,0,0],[0,0,1,0],[centro[0],centro[1],centro[2],1]])
+            final = aux1.dot(aux2).tolist()
+            matriz3.append(final[0])
+        self.window = matriz3
+        # atualiza centro:
+        (x,y,z) = (0,0,0)
+        for i in self.window:
+            x += i[0]
+            y += i[1]
+            z += i[2]
+        self.windowCenter = [x/len(self.window), y/len(self.window), z/len(self.window)]
         self.log.insert(0, "zoom "+tipo+" na Window")
         self.renderObjetcs()
 
