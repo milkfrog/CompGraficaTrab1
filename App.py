@@ -58,7 +58,7 @@ class App:
         menuArquivo = Menu(menuPrincipal, tearoff=False)
         menuPrincipal.add_cascade(label="Arquivo", menu=menuArquivo)
         menuArquivo.add_command(label="Importar Objetos", command=self.importarObjetos)
-        menuArquivo.add_command(label="Exportar Objeto", command=self.exportarObjetos)
+        menuArquivo.add_command(label="Exportar Objeto", command=self.exportarObjeto)
 
         # frame do Menu de Funções:
         menuDeFuncoes = LabelFrame(self.root, text="Menu de Funções", width=100)
