@@ -51,14 +51,14 @@ class App:
         self.root.mainloop()
 
     def renderWidget(self):
-        # barra menu:
+        # menu bar:
         menuPrincipal = Menu(self.root)
         self.root.config(menu=menuPrincipal)
 
         menuArquivo = Menu(menuPrincipal, tearoff=False)
         menuPrincipal.add_cascade(label="Arquivo", menu=menuArquivo)
         menuArquivo.add_command(label="Importar Objetos", command=self.importarObjetos)
-        menuArquivo.add_command(label="Exportar Objetos", command=self.exportarObjetos)
+        menuArquivo.add_command(label="Exportar Objeto", command=self.exportarObjetos)
 
         # frame do Menu de Funções:
         menuDeFuncoes = LabelFrame(self.root, text="Menu de Funções", width=100)
@@ -181,7 +181,7 @@ class App:
 
         self.renderObjetcs()
 
-    def exportarObjetos(self):
+    def exportarObjeto(self):
             selectedObjectIndex = self.listObjects.curselection()[0]
             obj = self.displayFile[selectedObjectIndex]
             objStream = traduzParaFormatoObj(obj)
