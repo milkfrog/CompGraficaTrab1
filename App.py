@@ -92,22 +92,24 @@ class App:
         frameRotacao = Frame(labelWindow)
         frameRotacao.pack()
         Label(frameRotacao, text="Eixo X: ").grid(row=0, column=0)
-        Button(frameRotacao, text="↻", command=lambda: self.rotateWindow("↻", "x")).grid(row=0, column=1)
-        Button(frameRotacao, text="↺", command=lambda: self.rotateWindow("↺", "x")).grid(row=0, column=2)
+        Button(frameRotacao, text="↻", command=lambda: self.rotacionarWindow("x", "↻")).grid(row=0, column=1)
+        Button(frameRotacao, text="↺", command=lambda: self.rotacionarWindow("x", "↺")).grid(row=0, column=2)
         Label(frameRotacao, text="Eixo Y: ").grid(row=1, column=0)
-        Button(frameRotacao, text="↻", command=lambda: self.rotateWindow("↻", "y")).grid(row=1, column=1)
-        Button(frameRotacao, text="↺", command=lambda: self.rotateWindow("↺", "y")).grid(row=1, column=2)
+        Button(frameRotacao, text="↻", command=lambda: self.rotacionarWindow("y", "↻")).grid(row=1, column=1)
+        Button(frameRotacao, text="↺", command=lambda: self.rotacionarWindow("y", "↺")).grid(row=1, column=2)
         Label(frameRotacao, text="Eixo Z: ").grid(row=2, column=0)
-        Button(frameRotacao, text="↻", command=lambda: self.rotateWindow("↻", "z")).grid(row=2, column=1)
-        Button(frameRotacao, text="↺", command=lambda: self.rotateWindow("↺", "z")).grid(row=2, column=2)
+        Button(frameRotacao, text="↻", command=lambda: self.rotacionarWindow("z", "↻")).grid(row=2, column=1)
+        Button(frameRotacao, text="↺", command=lambda: self.rotacionarWindow("z", "↺")).grid(row=2, column=2)
         
 
         # frame de Transformacao de Objetos
         self.opcaoCentroDeRotacao = StringVar()
-        opcoesCentroDeRotacao = {'Mundo', 'Objeto', 'Ponto Qualquer'}
+        opcoesCentroDeRotacao = {'Mundo', 'Objeto', 'Ponto Qualquer', 'X', 'Y', 'Z'}
         self.opcaoCentroDeRotacao.set('Objeto')
         self.centroDeRotacaoX = DoubleVar()
         self.centroDeRotacaoY = DoubleVar()
+        self.centroDeRotacaoZ = DoubleVar()
+        self.anguloRot = DoubleVar(value=0.0)
         labelTransformacoes = LabelFrame(menuDeFuncoes, text="Trasformacao de Objetos", width=100)
         labelTransformacoes.pack(side=TOP, fill=X, pady=(10, 0))
         labelTranslacaoEscalonamento = LabelFrame(labelTransformacoes, text="Translacao e Escalonamento")
@@ -132,10 +134,14 @@ class App:
         Button(frameRotacaoBotoes, text="↻", command=lambda: self.rotateObject("r")).grid(row=0, column=1)
         Label(frameRotacaoOpcoes, text="Centro: ").grid(row=0, column=0)
         OptionMenu(frameRotacaoOpcoes, self.opcaoCentroDeRotacao, *opcoesCentroDeRotacao).grid(row=0, column=1)
-        Label(frameRotacaoOpcoes, text="X = ").grid(row=1, column=0)
-        Entry(frameRotacaoOpcoes, textvariable=self.centroDeRotacaoX, width=10).grid(row=1,column=1)
-        Label(frameRotacaoOpcoes, text="Y = ").grid(row=2, column=0)
-        Entry(frameRotacaoOpcoes, textvariable=self.centroDeRotacaoY, width=10).grid(row=2, column=1)
+        Label(frameRotacaoOpcoes, text="Angulo = ").grid(row=1, column=0)
+        Entry(frameRotacaoOpcoes, textvariable=self.anguloRot, width=10).grid(row=1,column=1)
+        Label(frameRotacaoOpcoes, text="X = ").grid(row=2, column=0)
+        Entry(frameRotacaoOpcoes, textvariable=self.centroDeRotacaoX, width=10).grid(row=2,column=1)
+        Label(frameRotacaoOpcoes, text="Y = ").grid(row=3, column=0)
+        Entry(frameRotacaoOpcoes, textvariable=self.centroDeRotacaoY, width=10).grid(row=3, column=1)
+        Label(frameRotacaoOpcoes, text="Z = ").grid(row=4, column=0)
+        Entry(frameRotacaoOpcoes, textvariable=self.centroDeRotacaoZ, width=10).grid(row=4, column=1)
 
         # frame da ViewPort:
         frameViewPort = LabelFrame(self.root, text="ViewPort")
@@ -388,16 +394,6 @@ class App:
         self.renderObjetcs()
         self.log.insert(0, "Window movida na direção "+direction)
 
-    def rotateWindow(self, direction, axis):
-        # 20 graus:
-        angle = pi / 9
-        if axis == 'x':
-            self.windowRotate = self.windowRotate.dot(np.array([[1,0,0,0],[0,cos(angle),-sin(angle),0],[0,sin(angle),cos(angle),0],[0,0,0,1]]))
-        elif axis == 'y':
-            self.windowRotate = self.windowRotate.dot(np.array([[cos(angle),0,-sin(angle),0],[0,1,0,0],[sin(angle),0,cos(angle),0],[0,0,0,1]]))
-        elif axis == 'z':
-            self.windowRotate = self.windowRotate.dot(np.array([[cos(angle),-sin(angle),0,0],[sin(angle),cos(angle),0,0],[0,0,1,0],[0,0,0,1]]))
-
     def moveObject(self, direction):
         valorDeTranslacao = 0.1
         windowHeight = sqrt((self.window[3][0]-self.window[0][0])**2 + (self.window[3][1]-self.window[0][1])**2)/2
@@ -427,18 +423,145 @@ class App:
     def rotateObject(self, direction):
         try:
             obj = self.displayFile[self.listObjects.curselection()[0]]
+            origem = Coordenada(0,0,0)
+            (x,y,z) = (self.centroDeRotacaoX.get(),self.centroDeRotacaoY.get(),self.centroDeRotacaoZ.get())
+            angulo = self.anguloRot.get() if direction == 'r' else -self.anguloRot.get()
             if self.opcaoCentroDeRotacao.get() == "Mundo":
-                centro = np.array([0, 0])
+                self.rotacionar(obj, angulo, origem.x, origem.y, origem.z)
             elif self.opcaoCentroDeRotacao.get() == "Objeto":
-                centro = Operations.objectCenter(obj.worldCoordinates)
-            else:
-                centro = np.array([self.centroDeRotacaoX, self.centroDeRotacaoY])
-            angle = pi / 9 if direction == "l" else -pi / 9
-            obj.worldCoordinates = obj.worldCoordinates.dot(Operations.rotateMatrix(angle, centro))
+                centro = obj.getCentro()
+                self.rotacionar(obj, angulo, centro.x, centro.y, centro.z)
+            elif self.opcaoCentroDeRotacao.get() == 'Ponto Qualquer':
+                centro = Coordenada(x,y,z)
+                self.rotacionar(obj, angulo, centro.x, centro.y, centro.z)
+            elif self.opcaoCentroDeRotacao.get() == 'X':
+                centro = obj.getCentro()
+                self.rotacionarEixoX(obj, angulo, centro.x, centro.y, centro.z)
+            elif self.opcaoCentroDeRotacao.get() == 'Y':
+                centro = obj.getCentro()
+                self.rotacionarEixoY(obj, angulo, centro.x, centro.y, centro.z)
+            elif self.opcaoCentroDeRotacao.get() == 'Z':
+                centro = obj.getCentro()
+                self.rotacionarEixoZ(obj, angulo, centro.x, centro.y, centro.z)
             self.renderObjetcs()
-            self.log.insert(0, obj.name+" rotacionado em "+str(ceil(angle*(180/pi)))+" graus na direção "+("↺" if direction == "l" else "↻")+" no "+str(self.opcaoCentroDeRotacao.get()))
+            self.log.insert(0, obj.nome+" rotacionado em "+str(angulo)+" graus na direção "+("↺" if direction == "l" else "↻")+" no "+str(self.opcaoCentroDeRotacao.get()))
         except:
             self.log.insert(0, "Selecione um objeto primeiro.")
+
+    def rotacionarEixoX(self, objeto, angulo, Dx, Dy, Dz):
+        aux = []
+        for coordenada in objeto.coordenadas:
+            aux1 = np.array([[coordenada.x, coordenada.y, coordenada.z,1]])
+            aux2 = np.array([[1,0,0,0],[0,1,0,0],[0,0,1,0],[-Dx,-Dy,-Dz,1]])
+            final = aux1.dot(aux2).tolist()
+            aux.append(Coordenada(final[0][0],final[0][1],final[0][2]))
+        objeto.coordenadas = aux
+        centro = objeto.getCentro()
+        aux3 = []
+        teta = (360-angulo)*(pi/180)
+        for coordenada in objeto.coordenadas:
+            aux4 = np.array([[coordenada.x, coordenada.y, coordenada.z,1]])
+            aux5 = np.array([[1,0,0,0],[0,cos(teta),sin(teta),0],[0,-sin(teta),cos(teta),0],[0,0,0,1]])
+            final2 = aux4.dot(aux5).tolist()
+            aux3.append(Coordenada(final2[0][0],final2[0][1],final2[0][2]))
+        objeto.coordenadas = aux3
+        aux6 = []
+        for coordenada in objeto.coordenadas:
+            aux7 = np.array([[coordenada.x, coordenada.y, coordenada.z,1]])
+            aux8 = np.array([[1,0,0,0],[0,1,0,0],[0,0,1,0],[Dx,Dy,Dz,1]])
+            final3 = aux7.dot(aux8).tolist()
+            aux6.append(Coordenada(final3[0][0],final3[0][1],final3[0][2]))
+        objeto.coordenadas = aux6
+
+    def rotacionarEixoY(self, objeto, angulo, Dx, Dy, Dz):
+        aux = []
+        for coordenada in objeto.coordenadas:
+            aux1 = np.array([[coordenada.x, coordenada.y, coordenada.z,1]])
+            aux2 = np.array([[1,0,0,0],[0,1,0,0],[0,0,1,0],[-Dx,-Dy,-Dz,1]])
+            final = aux1.dot(aux2).tolist()
+            aux.append(Coordenada(final[0][0],final[0][1],final[0][2]))
+        objeto.coordenadas = aux
+        centro = objeto.getCentro()
+        aux3 = []
+        teta = (360-angulo)*(pi/180)
+        for coordenada in objeto.coordenadas:
+            aux4 = np.array([[coordenada.x, coordenada.y, coordenada.z,1]])
+            aux5 = np.array([[cos(teta),0,-sin(teta),0],[0,1,0,0],[sin(teta),0,cos(teta),0],[0,0,0,1]])
+            final2 = aux4.dot(aux5).tolist()
+            aux3.append(Coordenada(final2[0][0],final2[0][1],final2[0][2]))
+        objeto.coordenadas = aux3
+        aux6 = []
+        for coordenada in objeto.coordenadas:
+            aux7 = np.array([[coordenada.x, coordenada.y, coordenada.z,1]])
+            aux8 = np.array([[1,0,0,0],[0,1,0,0],[0,0,1,0],[Dx,Dy,Dz,1]])
+            final3 = aux7.dot(aux8).tolist()
+            aux6.append(Coordenada(final3[0][0],final3[0][1],final3[0][2]))
+        objeto.coordenadas = aux6
+
+    def rotacionarEixoZ(self, objeto, angulo, Dx, Dy, Dz):
+        aux = []
+        for coordenada in objeto.coordenadas:
+            aux1 = np.array([[coordenada.x, coordenada.y, coordenada.z,1]])
+            aux2 = np.array([[1,0,0,0],[0,1,0,0],[0,0,1,0],[-Dx,-Dy,-Dz,1]])
+            final = aux1.dot(aux2).tolist()
+            aux.append(Coordenada(final[0][0],final[0][1],final[0][2]))
+        objeto.coordenadas = aux
+        centro = objeto.getCentro()
+        aux3 = []
+        teta = (360-angulo)*(pi/180)
+        for coordenada in objeto.coordenadas:
+            aux4 = np.array([[coordenada.x, coordenada.y, coordenada.z,1]])
+            aux5 = np.array([[cos(teta),sin(teta),0,0],[-sin(teta),cos(teta),0,0],[0,0,1,0],[0,0,0,1]])
+            final2 = aux4.dot(aux5).tolist()
+            aux3.append(Coordenada(final2[0][0],final2[0][1],final2[0][2]))
+        objeto.coordenadas = aux3
+        aux6 = []
+        for coordenada in objeto.coordenadas:
+            aux7 = np.array([[coordenada.x, coordenada.y, coordenada.z,1]])
+            aux8 = np.array([[1,0,0,0],[0,1,0,0],[0,0,1,0],[Dx,Dy,Dz,1]])
+            final3 = aux7.dot(aux8).tolist()
+            aux6.append(Coordenada(final3[0][0],final3[0][1],final3[0][2]))
+        objeto.coordenadas = aux6
+
+    def rotacionar(self, objeto, angulo, Dx, Dy, Dz):
+        aux = []
+        for coordenada in objeto.coordenadas:
+            aux1 = np.array([[coordenada.x, coordenada.y, coordenada.z,1]])
+            aux2 = np.array([[1,0,0,0],[0,1,0,0],[0,0,1,0],[-Dx,-Dy,-Dz,1]])
+            final = aux1.dot(aux2).tolist()
+            aux.append(Coordenada(final[0][0],final[0][1],final[0][2]))
+        objeto.coordenadas = aux
+        centro = objeto.getCentro()
+        aux3 = []
+        teta = (360-angulo)*(pi/180)
+        for coordenada in objeto.coordenadas:
+            aux4 = np.array([[coordenada.x, coordenada.y, coordenada.z,1]])
+            aux5 = np.array([[1,0,0,0],[0,cos(2*pi),sin(2*pi),0],[0,-sin(2*pi),cos(2*pi),0],[0,0,0,1]])
+            aux6 = np.array([[cos(2*pi),sin(2*pi),0,0],[-sin(2*pi),cos(2*pi),0,0],[0,0,1,0],[0,0,0,1]])
+            aux7 = np.array([[cos(teta),0,-sin(teta),0],[0,1,0,0],[sin(teta),0,cos(teta),0],[0,0,0,1]])
+            aux8 = np.array([[cos(0),sin(0),0,0],[-sin(0),cos(0),0,0],[0,0,1,0],[0,0,0,1]])
+            aux9 = np.array([[1,0,0,0],[0,cos(0),sin(0),0],[0,-sin(0),cos(0),0],[0,0,0,1]])
+            final2 = aux4.dot(aux5).dot(aux6).dot(aux7).dot(aux8).dot(aux9).tolist()
+            aux3.append(Coordenada(final2[0][0],final2[0][1],final2[0][2]))
+        objeto.coordenadas = aux3
+        aux10 = []
+        for coordenada in objeto.coordenadas:
+            aux11 = np.array([[coordenada.x, coordenada.y, coordenada.z,1]])
+            aux12 = np.array([[1,0,0,0],[0,1,0,0],[0,0,1,0],[Dx,Dy,Dz,1]])
+            final3 = aux11.dot(aux12).tolist()
+            aux10.append(Coordenada(final3[0][0],final3[0][1],final3[0][2]))
+        objeto.coordenadas = aux10
+
+    def rotacionarWindow(self, eixo, direcao):
+        valorRotacao = 10
+        if (eixo == 'x'):
+            self.anguloRotacaoWindowEixoX += valorRotacao if direcao == '↻' else -valorRotacao
+        elif (eixo == 'y'):
+            self.anguloRotacaoWindowEixoY += valorRotacao if direcao == '↻' else -valorRotacao
+        elif (eixo == 'z'):
+            self.anguloRotacaoWindowEixoZ += valorRotacao if direcao == '↻' else -valorRotacao
+        self.log.insert(0, "window rotacionada na direção " + direcao + " do eixo "+ eixo)
+        self.renderObjetcs()
 
     def scaleObject(self, tipo):
         try:
