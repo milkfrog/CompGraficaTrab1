@@ -1,11 +1,14 @@
 # coding: utf-8
 from tkinter import *
 from tkinter import ttk
+import tkinter.filedialog as tkFileDialog
 import numpy as np
 from math import sin, cos, pi, ceil, sqrt, atan
 from copy import deepcopy
+from io import StringIO
 
 from Objetos import *
+from IO import *
 
 
 class App:
@@ -48,6 +51,15 @@ class App:
         self.root.mainloop()
 
     def renderWidget(self):
+        # barra menu:
+        menuPrincipal = Menu(self.root)
+        self.root.config(menu=menuPrincipal)
+
+        menuArquivo = Menu(menuPrincipal, tearoff=False)
+        menuPrincipal.add_cascade(label="Arquivo", menu=menuArquivo)
+        menuArquivo.add_command(label="Importar Objetos", command=self.importarObjetos)
+        menuArquivo.add_command(label="Exportar Objetos", command=self.exportarObjetos)
+
         # frame do Menu de Funções:
         menuDeFuncoes = LabelFrame(self.root, text="Menu de Funções", width=100)
         menuDeFuncoes.pack(side=LEFT, fill=Y)
@@ -140,6 +152,38 @@ class App:
 
         self.root.update_idletasks()
         print("Canvas w: " + str(self.canvas.winfo_width()) + ", and h: " + str(self.canvas.winfo_height()))
+
+    def importarObjetos(self):
+        objFiles = tkFileDialog.askopenfiles(mode='r', initialdir="./", title="Escolha o arquivo" , filetypes=[("Object File", "*.obj")])
+        for oFile in objFiles:
+            obj = criaObjetoDeArquivoObj(oFile)
+            
+            self.displayFile.append(obj)
+
+            if type(obj) is Ponto:
+                tipo = "ponto"
+            elif type(obj) is Reta:
+                tipo = "linha"
+            elif type(obj) is Wireframe:
+                tipo = "wireframe"
+            else:
+                tipo = "indefinido"
+
+            indiceItensRegistrados = len(self.displayFile)
+            self.listObjects.insert(END, str(indiceItensRegistrados)+") " + obj.nome + "("+tipo+")")
+            self.log.insert(0, "Objeto " + obj.nome + " incluido")
+
+        self.renderObjetcs()
+
+    def exportarObjetos(self):
+            selectedObjectIndex = self.listObjects.curselection()[0]
+            obj = self.displayFile[selectedObjectIndex]
+            objStream = traduzParaFormatoObj(obj)
+            fileStream = tkFileDialog.asksaveasfile(mode="w", initialdir="./", title="Salvar como", filetypes=[("Object File", "*.obj")])
+            fileStream.write(objStream.getvalue())
+            objStream.close()
+            fileStream.close()
+
 
     def renderObjetcs(self):
         # deletando o que tiver desenhado no canvas:
