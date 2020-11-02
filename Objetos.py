@@ -12,11 +12,13 @@ class Coordenada:
     def getList(self):
         return [self.x, self.y, self.z]
 
+
 class Ponto:
 
     def __init__(self, nome, coordenadas, cor='#000000', normalizado=False):
         self.nome = nome
         self.coordenadas = coordenadas
+        self.coordenadas.append(coordenadas[0])
         self.cor = cor
         self.normalizado = normalizado
 
@@ -61,7 +63,6 @@ class Reta:
             if (regionCodeIntersecta):
                 clipado.append(novaCoordenada)
         self.clipado = clipado
-
 
     def getRegionCodes(self, coordenadas):
         aux = []
@@ -117,7 +118,6 @@ class Reta:
                     novaCoordenada[i].y = y
         return (novaCoordenada, regionCodeIntersecta)
                 
-
 
 class Wireframe:
     
@@ -303,6 +303,4 @@ class Wireframe:
                         aux.append([])
             self.clipado = aux
         else:
-            self.clipado = [list(filter(lambda var: (abs(var.x) <= 1 and abs(var.y) <= 1), wireframeCoordenadas))]       
-
-                
+            self.clipado = [list(filter(lambda var: (abs(var.x) <= 1 and abs(var.y) <= 1), wireframeCoordenadas))]
