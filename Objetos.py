@@ -1,5 +1,5 @@
 import numpy as np
-from math import sin, cos
+from math import sin, cos, floor
 from copy import deepcopy
 
 class Coordenada:
@@ -121,7 +121,7 @@ class Reta:
 
 class Wireframe:
     
-    def __init__(self, nome, coordenadas, cor='#000000', normalizado=False, tipoEspecifico='wireframe'):
+    def __init__(self, nome, coordenadas, tipoEspecifico='wireframe', cor='#000000', normalizado=False):
         self.nome = nome
         self.coordenadas = coordenadas
         self.cor = cor
@@ -205,6 +205,70 @@ class Wireframe:
                 return novaCoordenada
             else:
                 return []
+
+    def bezier(self):
+        aux = []
+        mb = np.array([[-1,3,-3,1],[3,-6,3,0],[-3,3,0,0],[1,0,0,0]])
+        for i in range(floor(len(self.coordenadas)/3)):
+            p1 = self.coordenadas[3*i]
+            p2 = self.coordenadas[3*(i+1)]
+            p3 = self.coordenadas[3*(i+2)]
+            p4 = self.coordenadas[3*(i+3)]
+            gbX = np.array([[p1.x], [p2.x], [p3.x], [p4.x]])
+            gbY = np.array([[p1.y], [p2.y], [p3.y], [p4.y]])
+            for t in range(0, 1005, 5):
+                aux1 = np.array([[pow(t/1000, 3), pow(t/1000, 2), t/1000, 1]])
+                ptX = aux1.dot(mb).dot(gbX)
+                ptY = aux1.dot(mb).dot(gbY)
+                aux.append(Coordenada(ptX[0][0], ptY[0][0]))
+        self.coordenadas = aux                
+
+    def bSpline(self):
+        aux = []
+        mbs = np.array([[-1/6,1/2,-1/2,1/6],[1/2, -1, 1/2, 0],[-1/2, 0, 1/2, 0],[1/6, 4/6, 1/6, 0]])
+        fator = 0.01
+        aux1 = np.array([[0, 0, 0, 1], [pow(fator, 3), pow(fator, 2), fator, 0], [6*pow(fator, 3), 2*pow(fator, 2), 0, 0], [6*pow(fator, 3), 0, 0, 0]])
+        fatorInverso = 1/fator
+        for i in range(len(self.coordenadas) - 3):
+            p1 = self.coordenadas[i]
+            p2 = self.coordenadas[i+1]
+            p3 = self.coordenadas[i+2]
+            p4 = self.coordenadas[i+3]
+            gbsX = np.array([[p1.x], [p2.x], [p3.x], [p4.x]])
+            gbsY = np.array([[p1.y], [p2.y], [p3.y], [p4.y]])
+            cX = mbs.dot(gbsX)
+            cY = mbs.dot(gbsY)
+            fsX = aux1.dot(cX)
+            fsY = aux1.dot(cY)
+            aux2 = self.forwardDifference(fatorInverso, fsX[0][0], fsX[1][0], fsX[2][0], fsX[3][0], fsY[0][0], fsY[1][0], fsY[2][0], fsY[3][0])
+            aux += aux2
+        self.coordenadas = aux
+
+    def forwardDifference(self, fatorInverso, x, dx, d2x, d3x, y, dy, d2y, d3y):
+        aux = []
+        i = 1
+        aux.append(Coordenada(x, y))
+        while (i < fatorInverso):
+            i += 1
+            x += dx
+            dx += d2x
+            d2x += d3x
+            y += dy
+            dy += d2y
+            d2y += d3y
+            aux.append(Coordenada(x, y))
+        return aux
+
+    def clipCurvaEbSpline(self):
+        i = 0
+        aux = []
+        while i < len(self.coordenadas) - 1:
+            p1 = deepcopy(self.coordenadas[i])
+            p2 = deepcopy(self.coordenadas[i + 1])
+            novaCoordenada = self.clipReta([p1, p2])
+            aux.append(novaCoordenada)
+            i += 1
+        self.clipado = aux
 
     def clipWireframe(self):
         i = 0

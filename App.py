@@ -3,7 +3,7 @@ from tkinter import *
 from tkinter import ttk
 import tkinter.filedialog as tkFileDialog
 import numpy as np
-from math import sin, cos, pi, ceil, sqrt, atan
+from math import sin, cos, pi, ceil, sqrt, atan, tan
 from copy import deepcopy
 from io import StringIO
 
@@ -229,9 +229,11 @@ class App:
             if (isinstance(aux, Wireframe) and aux.tipoEspecifico == 'wireframe'):
                 aux.clipWireframe()
             if (isinstance(aux, Wireframe) and aux.tipoEspecifico == 'curva'):
-                pass
+                aux.bezier()
+                aux.clipCurvaEbSpline()
             if (isinstance(aux, Wireframe) and aux.tipoEspecifico == 'bSpline'):
-                pass
+                aux.bSpline()
+                aux.clipCurvaEbSpline()
             clipAux = []
             for coord in aux.clipado:
                 if (len(coord) == 1):
@@ -265,9 +267,9 @@ class App:
         matrizSCN = self.getMatrizSCN().tolist()
         objetos = deepcopy(self.displayFile)
         
-        # incluir config na GUI pra deicidir entre qual projecao:
-        # self.projecaoPerspectiva(objetos)
-        # self.projecaoParalela()  
+        # projeção
+        self.projecaoPerspectiva(objetos)
+        # self.projecaoParalela()
 
         for objeto in objetos:
             aux = []
@@ -283,8 +285,8 @@ class App:
         windowCenterNegativo = np.array(self.windowCenter).dot(-1)
         aux2 = [[1,0,0,0],[0,1,0,0],[0,0,1,0],[windowCenterNegativo[0], windowCenterNegativo[1], windowCenterNegativo[2], 1]]
         vrpt = np.delete(aux1.dot(aux2), 3, 1)
-        p1 = vrpt - np.array(self.window[0]) - np.array(self.windowCenter)
-        p2 = np.array(self.window[1]) - np.array(self.windowCenter) - vrpt
+        p1 = vrpt - np.array([self.window[0][0],self.window[0][1],self.window[0][2]]) - np.array(self.windowCenter)
+        p2 = np.array([self.window[1][0],self.window[1][1],self.window[1][2]]) - np.array(self.windowCenter) - vrpt
         vpn = np.array([p1[0][1] * p2[0][2] - p1[0][2] * p2[0][1], p1[0][2] * p2[0][0] - p1[0][0] * p2[0][2], p1[0][0] * p2[0][1] - p1[0][1] * p2[0][0]])
         valor1 = 0 if vpn[2] == 0 else vpn[1]/vpn[2]
         valor2 = 0 if vpn[2] == 0 else vpn[0]/vpn[2]
@@ -292,8 +294,8 @@ class App:
         aux3 = []
         for coordenada in self.window:
             aux3.append(np.delete(np.array([coordenada[0],coordenada[1],coordenada[2],1]).dot(np.array([[1,0,0,0],[0,1,0,0],[0,0,1,0],[-self.windowCenter[0],-self.windowCenter[1],-self.windowCenter[2],1]])),3,0).tolist())
-        tetaX = round((360-teta[0])*(pi/180), 5)
-        tetaY = round((360-teta[1])*(pi/180), 5)
+        tetaX = (360-teta[0])*(pi/180)
+        tetaY = (360-teta[1])*(pi/180)
         rotacaoX = np.array([[1,0,0,0],[0,round(cos(tetaX),5),round(sin(tetaX),5),0],[0,round(-sin(tetaX),5),round(cos(tetaX),5),0],[0,0,0,1]])
         rotacaoY = np.array([[round(cos(tetaY),5),0,round(-sin(tetaY),5),0],[0,1,0,0],[round(sin(tetaY),5),0,round(cos(tetaY),5),0],[0,0,0,1]])
         aux4 = []
@@ -310,13 +312,77 @@ class App:
                 coord = np.delete(np.array([[coordenada.x,coordenada.y,coordenada.z,1]]).dot(rotacaoX).dot(rotacaoY),3,1)[0].tolist()
                 aux6.append(Coordenada(coord[0], coord[1], coord[2]))
             objeto.coordenadas = aux6
-            if (isinstance(objeto, Wireframe) and objeto.tipoEspecifico == 'Curva'):
+            if (isinstance(objeto, Wireframe) and objeto.tipoEspecifico == 'curva'):
                 objeto.arestas = []
                 for i in range(len(objeto.coordenadas)-1):
                     objeto.arestas.append([i, i+1])
 
-    def projecaoPerspectiva(self):
-        pass
+    def projecaoPerspectiva(self, objetos):
+        # angulo de visao
+        angulo = 120
+        windowWidth = sqrt((self.window[1][0]-self.window[0][0])**2 + (self.window[1][1]-self.window[0][1])**2)/2
+        # windowHeight = sqrt((self.window[3][0]-self.window[0][0])**2 + (self.window[3][1]-self.window[0][1])**2)/2
+        COP = abs(windowWidth / tan(angulo))
+        aux1 = np.array([[self.windowCenter[0],self.windowCenter[1],self.windowCenter[2],1]])
+        aux2 = np.array([[1,0,0,0],[0,1,0,0],[0,0,1,0],[-self.windowCenter[0],-self.windowCenter[1],-self.windowCenter[2],1]])
+        vrpt = np.delete(aux1.dot(aux2), 3, 1)
+        p1 = vrpt - np.array(self.window[0]) - np.array([self.windowCenter[0],self.windowCenter[1],self.windowCenter[2]])
+        p2 = np.array(self.window[1]) - np.array([self.windowCenter[0],self.windowCenter[1],self.windowCenter[2]]) - vrpt
+        vpn = np.array([p1[0][1]*p2[0][2] - p1[0][2]*p2[0][1], p1[0][2]*p2[0][0] - p1[0][0]*p2[0][2], p1[0][0]*p2[0][1] - p1[0][1]*p2[0][0]])
+        if (vpn[2] != 0):
+            teta = [atan(vpn[1]/vpn[2]), atan(vpn[0]/vpn[2])]
+        else:
+            teta = [0,0]
+        aux3 = []
+        for coordenada in self.window:
+            aux3.append(np.delete(np.array([coordenada[0],coordenada[1],coordenada[2],1]).dot(np.array([[1,0,0,0],[0,1,0,0],[0,0,1,0],[-self.windowCenter[0],-self.windowCenter[1],-self.windowCenter[2]+COP,1]])),3,0).tolist())
+        tetaX = (360-teta[0])*(pi/180)
+        tetaY = (360-teta[1])*(pi/180)
+        rotacaoX = np.array([[1,0,0,0],[0,round(cos(tetaX),5),round(sin(tetaX),5),0],[0,round(-sin(tetaX),5),round(cos(tetaX),5),0],[0,0,0,1]])
+        rotacaoY = np.array([[round(cos(tetaY),5),0,round(-sin(tetaY),5),0],[0,1,0,0],[round(sin(tetaY),5),0,round(cos(tetaY),5),0],[0,0,0,1]])
+        aux4 = []
+        for coordenada in aux3:
+            aux4.append(np.delete(np.array([[coordenada[0],coordenada[1],coordenada[2],1]]).dot(rotacaoX).dot(rotacaoY),3,1)[0].tolist())
+        aux5 = []
+        for coordenada in aux4:
+            w = coordenada[2]/COP
+            if (w == 0):
+                aux5 = aux4
+                break
+            aux5.append([coordenada[0]/w, coordenada[1]/2, COP])
+        aux6 = []
+        for coordenada in aux5:
+            aux6.append(np.delete(np.array([coordenada[0],coordenada[1],coordenada[2],1]).dot(np.array([[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,-COP,1]])),3,0).tolist())
+        self.window = np.array(aux6)
+        for objeto in objetos:
+            aux7 = []
+            for coordenada in objeto.coordenadas:
+                array = np.delete(np.array([coordenada.x,coordenada.y,coordenada.z,1]).dot(np.array([[1,0,0,0],[0,1,0,0],[0,0,1,0],[-self.windowCenter[0],-self.windowCenter[1],-self.windowCenter[2]+COP,1]])),3,0).tolist()
+                coord = Coordenada(array[0], array[1], array[2])
+                aux7.append(coord)
+            aux8 = []
+            for coordenada in aux7:
+                array = np.delete(np.array([[coordenada.x,coordenada.y,coordenada.z,1]]).dot(rotacaoX).dot(rotacaoY),3,1)[0].tolist()
+                coord = Coordenada(array[0], array[1], array[2])
+                aux8.append(coord)
+            aux9 = []
+            for coordenada in aux8:
+                w = coordenada.z/COP
+                if (w == 0):
+                    aux9 = aux8
+                    break
+                coord = Coordenada(coordenada.x/w, coordenada.y/w, COP)
+                aux9.append(coord)
+            aux10 = []
+            for coordenada in aux9:
+                array = np.delete(np.array([coordenada.x,coordenada.y,coordenada.z,1]).dot(np.array([[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,-COP,1]])),3,0).tolist()
+                coord = Coordenada(array[0], array[1], array[2])
+                aux10.append(coord)
+            objeto.coordenadas = aux10
+            if (isinstance(objeto, Wireframe) and objeto.tipoEspecifico == 'curva'):
+                objeto.arestas = []
+                for i in range(len(objeto.coordenadas)-1):
+                    objeto.arestas.append([i, i+1])
 
     def getMatrizSCN(self):
         matrizDeTranslacao = np.array([[1,0,0,0],[0,1,0,0],[0,0,1,0],[-self.windowCenter[0],-self.windowCenter[1],-self.windowCenter[2],1]])
@@ -671,14 +737,19 @@ class App:
         # Wireframe:
         # Gambiarra PESADA feita aqui xD
         self.mudancas = 0
+        self.opcoesWire = StringVar()
+        opcoesWire = {'wireframe', 'curva', 'bSpline'}
+        self.opcoesWire.set('wireframe')
         self.frameWire = Frame(self.tabWireframe)
         self.frameWire.pack(fill=X)
         self.vertices = IntVar()
         self.vertices.trace("w", lambda x, y, z: [self.updateWireframeAdd(), self.updateMudancas()])
         Label(self.frameWire, text="Quantidade de Vértices do Wireframe: ").grid(row=0, column=0)
         Entry(self.frameWire, textvariable=self.vertices).grid(row=0, column=1)
+        Label(self.frameWire, text="Tipo wireframe: ").grid(row=1, column=0)
+        OptionMenu(self.frameWire, self.opcoesWire, *opcoesWire).grid(row=1, column=1)
         self.frameCoords = Frame(self.frameWire)
-        self.frameCoords.grid(row=1, column=0, columnspan=2)
+        self.frameCoords.grid(row=2, column=0, columnspan=2)
 
         # pack do tabControl (tem q ser depois de toda a config dos tabs)
         self.tabControl.pack(fill=BOTH)
@@ -697,7 +768,7 @@ class App:
                 self.frameCoords.grid_forget()
                 self.frameCoords.destroy()
                 self.frameCoords = Frame(self.frameWire)
-                self.frameCoords.grid(row=1, column=0)
+                self.frameCoords.grid(row=2, column=0)
             self.wireFrameX = []
             self.wireFrameY = []
             self.wireFrameZ = []
@@ -738,10 +809,11 @@ class App:
             coordenadas.append(Coordenada(x2,y2,z2))
             self.displayFile.append(Reta(name, coordenadas))
         elif (tipo == "Wireframe"):
-            self.log.insert(0, "Wireframe")
+            tipoWire = self.opcoesWire.get()
+            self.log.insert(0, tipoWire)
             for i in range(self.vertices.get()):
                 coordenadas.append(Coordenada(self.wireFrameX[i].get(), self.wireFrameY[i].get(), self.wireFrameZ[i].get()))
-            self.displayFile.append(Wireframe(name, coordenadas))
+            self.displayFile.append(Wireframe(name, coordenadas, tipoWire))
 
         indiceItensRegistrados = len(self.displayFile)
         self.listObjects.insert(END, str(indiceItensRegistrados)+") " + name + "("+tipo+")")
