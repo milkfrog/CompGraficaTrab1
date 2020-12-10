@@ -268,7 +268,7 @@ class App:
         objetos = deepcopy(self.displayFile)
         
         # projeção
-        self.projecaoPerspectiva(objetos)
+        # self.projecaoPerspectiva(objetos)
         # self.projecaoParalela()
 
         for objeto in objetos:
